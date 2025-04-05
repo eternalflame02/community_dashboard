@@ -1,0 +1,158 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../services/auth_service.dart';
+
+class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final user = context.read<AuthService>().currentUser;
+
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        Center(
+          child: Stack(
+            children: [
+              CircleAvatar(
+                radius: 50,
+                backgroundImage: user?.photoURL != null
+                    ? NetworkImage(user!.photoURL!)
+                    : null,
+                child: user?.photoURL == null
+                    ? const Icon(Icons.person, size: 50)
+                    : null,
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: CircleAvatar(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  radius: 18,
+                  child: IconButton(
+                    icon: const Icon(Icons.camera_alt, size: 18),
+                    color: Theme.of(context).colorScheme.onPrimary,
+                    onPressed: () {
+                      // TODO: Implement photo upload
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          user?.displayName ?? 'Anonymous User',
+          style: Theme.of(context).textTheme.titleLarge,
+          textAlign: TextAlign.center,
+        ),
+        Text(
+          user?.email ?? '',
+          style: Theme.of(context).textTheme.bodyMedium,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 32),
+        const _SettingsSection(
+          title: 'Account Settings',
+          children: [
+            _SettingsTile(
+              icon: Icons.person_outline,
+              title: 'Edit Profile',
+            ),
+            _SettingsTile(
+              icon: Icons.notifications_outlined,
+              title: 'Notification Settings',
+            ),
+            _SettingsTile(
+              icon: Icons.location_on_outlined,
+              title: 'Location Settings',
+            ),
+          ],
+        ),
+        const Divider(height: 32),
+        const _SettingsSection(
+          title: 'App Settings',
+          children: [
+            _SettingsTile(
+              icon: Icons.dark_mode_outlined,
+              title: 'Theme',
+              trailing: Text('Light'),
+            ),
+            _SettingsTile(
+              icon: Icons.language_outlined,
+              title: 'Language',
+              trailing: Text('English'),
+            ),
+          ],
+        ),
+        const Divider(height: 32),
+        const _SettingsSection(
+          title: 'Support',
+          children: [
+            _SettingsTile(
+              icon: Icons.help_outline,
+              title: 'Help Center',
+            ),
+            _SettingsTile(
+              icon: Icons.info_outline,
+              title: 'About',
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+
+  const _SettingsSection({
+    required this.title,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ),
+        ...children,
+      ],
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Widget? trailing;
+
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      trailing: trailing ?? const Icon(Icons.chevron_right),
+      onTap: () {
+        // TODO: Implement settings navigation
+      },
+    );
+  }
+}
