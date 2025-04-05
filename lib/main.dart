@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
 import 'services/auth_service.dart';
 import 'providers/incidents_provider.dart';
+import 'services/incident_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/auth/login_screen.dart';
 
@@ -63,6 +64,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => IncidentsProvider()),
+        ChangeNotifierProvider(create: (_) => IncidentService()),
       ],
       child: MaterialApp(
         title: 'Community Dashboard',
