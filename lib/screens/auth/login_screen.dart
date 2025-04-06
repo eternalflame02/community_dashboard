@@ -29,7 +29,8 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final authService = context.read<AuthService>();
+      final authService = Provider.of<AuthService>(context, listen: false);
+      
       if (_isRegistering) {
         await authService.registerWithEmail(
           _emailController.text,
@@ -44,7 +45,10 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -62,12 +66,14 @@ class _LoginScreenState extends State<LoginScreen> {
             key: _formKey,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Community Dashboard',
+                  _isRegistering ? 'Create Account' : 'Welcome Back',
                   style: Theme.of(context).textTheme.headlineMedium,
+                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 48.0),
+                const SizedBox(height: 32),
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(
@@ -79,10 +85,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
                     }
+                    if (!value.contains('@')) {
+                      return 'Please enter a valid email';
+                    }
                     return null;
                   },
                 ),
-                const SizedBox(height: 16.0),
+                const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
                   decoration: const InputDecoration(
@@ -100,25 +109,25 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 24.0),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _submit,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Text(_isRegistering ? 'Register' : 'Login'),
-                    ),
-                  ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _submit,
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(_isRegistering ? 'Sign Up' : 'Sign In'),
                 ),
-                const SizedBox(height: 16.0),
+                const SizedBox(height: 16),
                 TextButton(
                   onPressed: _isLoading
                       ? null
                       : () => setState(() => _isRegistering = !_isRegistering),
                   child: Text(_isRegistering
-                      ? 'Already have an account? Login'
-                      : 'Need an account? Register'),
+                      ? 'Already have an account? Sign In'
+                      : 'Need an account? Sign Up'),
                 ),
               ],
             ),

@@ -64,6 +64,39 @@ A Flutter application for community incident reporting and management.
 - Geospatial incident querying
 - Image attachments for incidents
 
+## Recent Updates
+
+### MongoDB Integration
+- MongoDB is now used as the primary database for storing incidents and user data.
+- Firebase is still used for authentication, and user data is synced to MongoDB.
+
+### Error Handling Improvements
+- Enhanced error handling in `AuthService` and `IncidentService` to provide user-friendly error messages and consistent logging.
+- Fixed dead code issues in `IncidentService`.
+
+### Environment Setup
+Ensure the following environment variables are set in your `.env` file:
+
+#### Firebase Configuration
+```
+FIREBASE_API_KEY=your_api_key
+FIREBASE_AUTH_DOMAIN=your_auth_domain
+FIREBASE_PROJECT_ID=your_project_id
+FIREBASE_STORAGE_BUCKET=your_storage_bucket
+FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+FIREBASE_APP_ID=your_app_id
+```
+
+#### MongoDB Configuration
+```
+MONGO_URI=your_mongodb_uri
+MONGO_DB=community_dashboard
+```
+
+### Testing
+- Run `flutter test` to ensure all tests pass.
+- Mock Firebase and MongoDB services for widget tests to isolate UI logic.
+
 ## Development Resources
 
 - [Flutter Documentation](https://docs.flutter.dev/)

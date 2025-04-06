@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'services/auth_service.dart';
-import 'providers/incidents_provider.dart';
 import 'services/incident_service.dart';
+import 'services/mongodb_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/auth/login_screen.dart';
 
@@ -12,23 +12,23 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    if (kIsWeb) {
-      await Firebase.initializeApp(
-        options: const FirebaseOptions(
-          apiKey: "AIzaSyAUa1_8EdO2LeDO0igEipKc114dMHeygMs",
-          authDomain: "communitydashboard-4a923.firebaseapp.com",
-          projectId: "communitydashboard-4a923",
-          storageBucket: "communitydashboard-4a923.firebasestorage.app",
-          messagingSenderId: "624716403094",
-          appId: "1:624716403094:web:6fa618ed905370d8bf4db7"
-        ),
-      );
-    } else {
-      await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: "AIzaSyAUa1_8EdO2LeDO0igEipKc114dMHeygMs",
+        authDomain: "communitydashboard-4a923.firebaseapp.com",
+        projectId: "communitydashboard-4a923",
+        storageBucket: "communitydashboard-4a923.appspot.com",
+        messagingSenderId: "624716403094",
+        appId: "1:624716403094:web:6fa618ed905370d8bf4db7"
+      ),
+    );
+
+    if (!kIsWeb) {
+      await MongoDBService.initialize();
     }
-  } catch (e) {
-    debugPrint('Firebase initialization error: $e');
-    // Show error UI or handle gracefully
+  } catch (e, stackTrace) {
+    debugPrint('🔥 Initialization error: $e');
+    debugPrint('🧵 Stack trace: $stackTrace');
     runApp(const AppError(message: 'Failed to initialize app. Please try again.'));
     return;
   }
@@ -63,7 +63,6 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
-        ChangeNotifierProvider(create: (_) => IncidentsProvider()),
         ChangeNotifierProvider(create: (_) => IncidentService()),
       ],
       child: MaterialApp(

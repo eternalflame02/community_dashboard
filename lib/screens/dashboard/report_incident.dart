@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as path;
+import 'package:mongo_dart/mongo_dart.dart' as mongo;
 import '../../services/incident_service.dart';
 import '../../models/incident.dart';
+import '../../services/auth_service.dart';
+import 'dart:convert'; // Added import for base64Encode
 
 class ReportIncidentScreen extends StatefulWidget {
   const ReportIncidentScreen({super.key});
@@ -41,7 +44,6 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
   @override
   void initState() {
     super.initState();
-    // Delay getting location to avoid build issues
     Future.microtask(_getCurrentLocation);
   }
 
@@ -95,24 +97,12 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
   }
 
   Future<List<String>> _uploadImages() async {
-    final List<String> urls = [];
-    final storage = FirebaseStorage.instance;
-
+    final List<String> base64Images = [];
     for (final image in _selectedImages) {
-      final ref = storage.ref().child(
-        'incidents/${DateTime.now().millisecondsSinceEpoch}_${image.name}',
-      );
-
-      final uploadTask = await ref.putData(
-        await image.readAsBytes(),
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
-
-      final url = await uploadTask.ref.getDownloadURL();
-      urls.add(url);
+      final bytes = await image.readAsBytes();
+      base64Images.add(base64Encode(bytes));
     }
-
-    return urls;
+    return base64Images;
   }
 
   Future<void> _submitReport() async {
@@ -126,29 +116,43 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final imageUrls = await _uploadImages();
+      debugPrint('Starting report submission...');
+      List<String> imageUrls = [];
+      
+      if (_selectedImages.isNotEmpty) {
+        debugPrint('Uploading ${_selectedImages.length} images...');
+        imageUrls = await _uploadImages();
+        debugPrint('Images uploaded successfully: $imageUrls');
+      }
 
+      debugPrint('Creating incident object...');
       final incident = Incident(
-        id: '',  // Will be set by Firestore
+        id: '',  // Will be set by MongoDB
         title: _titleController.text,
         description: _descriptionController.text,
-        location: GeoPoint(
-          _selectedLocation!.latitude,
-          _selectedLocation!.longitude,
-        ),
+        location: {
+          'type': 'Point',
+          'coordinates': [
+            _selectedLocation!.longitude, // MongoDB uses [longitude, latitude]
+            _selectedLocation!.latitude,
+          ],
+        },
         address: _addressController.text.isEmpty 
             ? 'Location: ${_selectedLocation!.latitude}, ${_selectedLocation!.longitude}'
             : _addressController.text,
         category: _category,
         priority: _priority,
         status: IncidentStatus.open,
-        reporterId: 'anonymous', // TODO: Add auth
+        reporterId: Provider.of<AuthService>(context, listen: false).currentUser?.id ?? 'anonymous',
         images: imageUrls,
         createdAt: DateTime.now(),
+        resolvedAt: null,
       );
 
-      await Provider.of<IncidentService>(context, listen: false)
-          .createIncident(incident);
+      debugPrint('Saving incident to MongoDB...');
+      final service = Provider.of<IncidentService>(context, listen: false);
+      await service.createIncident(incident);
+      debugPrint('Incident saved successfully!');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -156,14 +160,17 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
         );
         Navigator.pop(context);
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('Error submitting report: $e');
+      debugPrint('Stack trace: $stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error submitting report: $e')),
+          SnackBar(
+            content: Text('Error submitting report: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 10),
+          ),
         );
-      }
-    } finally {
-      if (mounted) {
         setState(() => _isLoading = false);
       }
     }

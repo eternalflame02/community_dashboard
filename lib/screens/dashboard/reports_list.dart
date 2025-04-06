@@ -1,48 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/incident_service.dart';
 import '../../models/incident.dart';
 
 class ReportsList extends StatelessWidget {
-  const ReportsList({super.key});
+  final IncidentStatus? filterStatus;
+
+  const ReportsList({
+    super.key,
+    this.filterStatus,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Incident>>(
-      stream: Provider.of<IncidentService>(context).getIncidents(),
+    return FutureBuilder<List<Incident>>(
+      future: Provider.of<IncidentService>(context, listen: false).fetchIncidents(),
       builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(
-            child: Text('Error: ${snapshot.error}'),
-          );
-        }
-
+        debugPrint('Snapshot state: ${snapshot.connectionState}');
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          debugPrint('Error in FutureBuilder: ${snapshot.error}');
+          return Center(child: Text('Error: ${snapshot.error}'));
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          debugPrint('No incidents found.');
+          return const Center(child: Text('No incidents found.'));
         }
 
-        final incidents = snapshot.data ?? [];
-
-        if (incidents.isEmpty) {
-          return const Center(
-            child: Text('No incidents reported yet'),
-          );
-        }
+        final incidents = snapshot.data!;
+        debugPrint('Fetched ${incidents.length} incidents.');
 
         return ListView.builder(
           itemCount: incidents.length,
           itemBuilder: (context, index) {
             final incident = incidents[index];
-            return Card(
-              margin: const EdgeInsets.all(8.0),
-              child: ListTile(
-                title: Text(incident.title),
-                subtitle: Text(incident.description),
-                trailing: _buildStatusChip(incident.status),
-              ),
+            return ListTile(
+              title: Text(incident.title),
+              subtitle: Text(incident.description),
             );
           },
         );
@@ -50,26 +44,36 @@ class ReportsList extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusChip(IncidentStatus status) {
-    Color color;
+  Future<void> _markAsResolved(BuildContext context, Incident incident) async {
+    try {
+      final incidentService =
+          Provider.of<IncidentService>(context, listen: false);
+      await incidentService.updateIncidentStatus(
+        incident.id,
+        IncidentStatus.resolved,
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Incident marked as resolved')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  Color _getStatusColor(IncidentStatus status) {
     switch (status) {
       case IncidentStatus.open:
-        color = Colors.red;
-        break;
+        return Colors.red;
       case IncidentStatus.inProgress:
-        color = Colors.orange;
-        break;
+        return Colors.orange;
       case IncidentStatus.resolved:
-        color = Colors.green;
-        break;
+        return Colors.green;
     }
-
-    return Chip(
-      label: Text(
-        status.name.toUpperCase(),
-        style: const TextStyle(color: Colors.white),
-      ),
-      backgroundColor: color,
-    );
   }
 }

@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../../models/incident.dart';
-import '../../providers/incidents_provider.dart';
+import '../../services/incident_service.dart';
 import 'incident_details.dart';
 
 class IncidentsMap extends StatefulWidget {
@@ -125,12 +125,12 @@ class _IncidentsMapState extends State<IncidentsMap> {
 
   @override
   Widget build(BuildContext context) {
-    final incidentsProvider = Provider.of<IncidentsProvider>(context);
+    final incidentsService = Provider.of<IncidentService>(context);
 
     return Stack(
       children: [
         StreamBuilder<List<Incident>>(
-          stream: incidentsProvider.incidentsStream,
+          stream: incidentsService.getIncidents(),
           builder: (context, snapshot) {
             if (snapshot.hasData) {
               _updateMarkers(snapshot.data!);
@@ -214,7 +214,7 @@ class _IncidentsMapState extends State<IncidentsMap> {
                         border: InputBorder.none,
                       ),
                       onChanged: (value) {
-                        incidentsProvider.setSearchQuery(value);
+                        incidentsService.setSearchQuery(value);
                       },
                     ),
                   ),
@@ -223,20 +223,20 @@ class _IncidentsMapState extends State<IncidentsMap> {
                     onSelected: (value) {
                       switch (value) {
                         case 'all':
-                          incidentsProvider.clearFilters();
+                          incidentsService.clearFilters();
                           break;
                         case 'open':
-                          incidentsProvider.setFilterStatus(IncidentStatus.open);
+                          incidentsService.setFilterStatus(IncidentStatus.open);
                           break;
                         case 'high_priority':
-                          incidentsProvider
+                          incidentsService
                               .setFilterPriority(IncidentPriority.high);
                           break;
                         case 'infrastructure':
-                          incidentsProvider.setFilterCategory('Infrastructure');
+                          incidentsService.setFilterCategory('Infrastructure');
                           break;
                         case 'safety':
-                          incidentsProvider.setFilterCategory('Safety');
+                          incidentsService.setFilterCategory('Safety');
                           break;
                       }
                     },
@@ -316,15 +316,15 @@ class _IncidentsMapState extends State<IncidentsMap> {
             child: const Icon(Icons.my_location),
           ),
         ),
-        if (incidentsProvider.searchQuery.isNotEmpty ||
-            incidentsProvider.filterCategory.isNotEmpty ||
-            incidentsProvider.filterStatus != null ||
-            incidentsProvider.filterPriority != null)
+        if (incidentsService.filterCategory?.isNotEmpty == true ||
+            incidentsService.filterPriority != null ||
+            incidentsService.filterStatus != null ||
+            incidentsService.searchQuery.isNotEmpty)
           Positioned(
             top: 80,
             right: 16,
             child: FloatingActionButton.small(
-              onPressed: () => incidentsProvider.clearFilters(),
+              onPressed: () => incidentsService.clearFilters(),
               child: const Icon(Icons.clear),
             ),
           ),
