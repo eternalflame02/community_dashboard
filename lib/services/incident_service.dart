@@ -119,7 +119,7 @@ class IncidentService extends ChangeNotifier {
       final response = await http.patch(
         Uri.parse('http://localhost:3000/incidents/$id'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'status': status.index}),
+        body: jsonEncode({'status': status.name}),
       );
       if (response.statusCode != 200) {
         throw Exception('Failed to update incident status');

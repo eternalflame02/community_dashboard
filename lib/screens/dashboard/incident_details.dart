@@ -54,6 +54,26 @@ class IncidentDetails extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    // Added logic to display images in the incident details view
+                    if (incident.images.isNotEmpty)
+                      SizedBox(
+                        height: 200,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: incident.images.length,
+                          itemBuilder: (context, index) {
+                            return Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Image.network(
+                                incident.images[index],
+                                fit: BoxFit.cover,
+                                width: 200,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                   ],
                 ),
               ),

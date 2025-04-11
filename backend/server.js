@@ -6,7 +6,8 @@ const cors = require('cors');
 const app = express();
 
 // Middleware
-app.use(bodyParser.json());
+// Increased the size limit for JSON payloads in body-parser
+app.use(bodyParser.json({ limit: '10mb' })); // Set limit to 10 MB for image uploads
 // Updated CORS configuration to allow all origins for development
 app.use(cors({ origin: '*' }));
 
@@ -49,17 +50,34 @@ mongoose.connection.on('disconnected', () => {
 });
 
 // Mongoose Schema & Model
+// Updated `incidentSchema` to include `address`, `category`, and `description` fields
 const incidentSchema = new mongoose.Schema({
   title: String,
-  description: String,
+  description: { type: String, required: true },
+  location: {
+    type: { type: String, enum: ['Point'], required: true },
+    coordinates: { type: [Number], required: true }, // [longitude, latitude]
+  },
+  address: { type: String, required: true },
+  category: { type: String, required: true },
   status: {
     type: String,
     enum: ['open', 'inProgress', 'resolved'],
-    default: 'open'
-  }
+    default: 'open',
+  },
+  priority: {
+    type: Number,
+    enum: [0, 1, 2], // 0: low, 1: medium, 2: high
+    required: true,
+  },
 }, { timestamps: true }); // Automatically adds createdAt and updatedAt
 
 const Incident = mongoose.model('Incident', incidentSchema);
+
+// Ensure indexes for `address`, `category`, and `description`
+Incident.collection.createIndex({ address: 1 }, { name: 'address_1' });
+Incident.collection.createIndex({ category: 1 }, { name: 'category_1' });
+Incident.collection.createIndex({ description: 1 }, { name: 'description_1' });
 
 // Health Check Route
 app.get('/', (req, res) => {
@@ -79,7 +97,9 @@ app.get('/health', async (req, res) => {
 // Get all incidents
 app.get('/incidents', async (req, res) => {
   try {
+    console.log('Fetching all incidents');
     const incidents = await Incident.find();
+    console.log('Fetched incidents:', incidents);
     res.json(incidents);
   } catch (err) {
     console.error('Error fetching incidents:', err);
@@ -87,12 +107,31 @@ app.get('/incidents', async (req, res) => {
   }
 });
 
-// Updated POST /incidents to map integer status values to strings
+// Added validation and handling for `images` and `priority` fields in POST /incidents
+// Fixed mapping of numeric `status` values to string values
 app.post('/incidents', async (req, res) => {
   try {
     console.log('Received data:', req.body);
 
-    // Map integer status values to strings
+    // Validate location
+    if (!req.body.location || !req.body.location.coordinates || req.body.location.coordinates.length !== 2) {
+      console.log('Invalid location data:', req.body.location);
+      return res.status(400).json({ error: 'Invalid location data' });
+    }
+
+    // Validate priority
+    if (typeof req.body.priority !== 'number' || req.body.priority < 0 || req.body.priority > 2) {
+      console.log('Invalid priority value:', req.body.priority);
+      return res.status(400).json({ error: 'Invalid priority value' });
+    }
+
+    // Validate images
+    if (!Array.isArray(req.body.images)) {
+      console.log('Invalid images data:', req.body.images);
+      return res.status(400).json({ error: 'Invalid images data' });
+    }
+
+    // Map numeric status values to string values
     const statusMap = ['open', 'inProgress', 'resolved'];
     if (typeof req.body.status === 'number') {
       req.body.status = statusMap[req.body.status];
@@ -100,10 +139,36 @@ app.post('/incidents', async (req, res) => {
 
     const incident = new Incident(req.body);
     await incident.save();
+    console.log('Incident saved successfully:', incident);
     res.status(201).json(incident);
   } catch (err) {
     console.error('Error saving incident:', err);
     res.status(500).json({ error: 'Failed to save incident', details: err.message });
+  }
+});
+
+// Added detailed logging for status updates and image handling
+app.patch('/incidents/:id', async (req, res) => {
+  try {
+    console.log(`Updating incident with ID: ${req.params.id}`);
+    console.log('Request body:', req.body);
+
+    const updatedIncident = await Incident.findByIdAndUpdate(
+      req.params.id,
+      { status: req.body.status },
+      { new: true }
+    );
+
+    if (!updatedIncident) {
+      console.log('Incident not found');
+      return res.status(404).json({ error: 'Incident not found' });
+    }
+
+    console.log('Incident updated successfully:', updatedIncident);
+    res.json(updatedIncident);
+  } catch (err) {
+    console.error('Error updating incident:', err);
+    res.status(500).json({ error: 'Failed to update incident', details: err.message });
   }
 });
 

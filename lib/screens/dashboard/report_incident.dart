@@ -125,6 +125,9 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
         debugPrint('Images uploaded successfully: $imageUrls');
       }
 
+      // Added debugging log to verify `_priority` value
+      debugPrint('Selected priority: ${_priority.name}');
+
       debugPrint('Creating incident object...');
       final incident = Incident(
         id: '',  // Will be set by MongoDB
@@ -158,7 +161,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Incident reported successfully')),
         );
-        Navigator.pop(context);
+        Navigator.pop(context, true); // Pass `true` to indicate a new report was added
       }
     } catch (e, stackTrace) {
       debugPrint('Error submitting report: $e');

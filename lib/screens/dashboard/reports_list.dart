@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/incident_service.dart';
 import '../../models/incident.dart';
+import '../dashboard/incident_details.dart';
 
 class ReportsList extends StatelessWidget {
   final IncidentStatus? filterStatus;
@@ -35,8 +36,72 @@ class ReportsList extends StatelessWidget {
           itemBuilder: (context, index) {
             final incident = incidents[index];
             return ListTile(
+              leading: incident.images.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: Image.network(
+                        incident.images.first,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Icon(
+                        Icons.photo_outlined,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
               title: Text(incident.title),
               subtitle: Text(incident.description),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _getPriorityColor(incident.priority).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _getPriorityColor(incident.priority),
+                      ),
+                    ),
+                    child: Text(
+                      incident.priority.name.toUpperCase(),
+                      style: TextStyle(
+                        color: _getPriorityColor(incident.priority),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      incident.status == IncidentStatus.resolved
+                          ? Icons.check_circle
+                          : Icons.hourglass_empty,
+                      color: incident.status == IncidentStatus.resolved
+                          ? Colors.green
+                          : Colors.orange,
+                    ),
+                    onPressed: () => _markAsResolved(context, incident),
+                  ),
+                ],
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => IncidentDetails(incident: incident),
+                  ),
+                );
+              },
             );
           },
         );
@@ -74,6 +139,17 @@ class ReportsList extends StatelessWidget {
         return Colors.orange;
       case IncidentStatus.resolved:
         return Colors.green;
+    }
+  }
+
+  Color _getPriorityColor(IncidentPriority priority) {
+    switch (priority) {
+      case IncidentPriority.low:
+        return Colors.green;
+      case IncidentPriority.medium:
+        return Colors.orange;
+      case IncidentPriority.high:
+        return Colors.red;
     }
   }
 }
