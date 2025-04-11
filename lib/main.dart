@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'services/auth_service.dart';
 import 'services/incident_service.dart';
+import 'services/theme_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/auth/login_screen.dart';
 
@@ -60,20 +61,24 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => IncidentService()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
-      child: MaterialApp(
-        title: 'Community Dashboard',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-          useMaterial3: true,
-        ),
-        home: Consumer<AuthService>(
-          builder: (context, authService, _) {
-            return authService.currentUser != null
-                ? const HomeScreen()
-                : const LoginScreen();
-          },
-        ),
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return MaterialApp(
+            title: 'Community Dashboard',
+            theme: ThemeData.light(),
+            darkTheme: ThemeData.dark(),
+            themeMode: themeProvider.themeMode,
+            home: Consumer<AuthService>(
+              builder: (context, authService, _) {
+                return authService.currentUser != null
+                    ? const HomeScreen()
+                    : const LoginScreen();
+              },
+            ),
+          );
+        },
       ),
     );
   }

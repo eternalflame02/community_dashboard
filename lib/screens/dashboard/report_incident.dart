@@ -11,6 +11,8 @@ import '../../services/incident_service.dart';
 import '../../models/incident.dart';
 import '../../services/auth_service.dart';
 import 'dart:convert'; // Added import for base64Encode
+import 'dart:io'; // Added import for File
+import 'package:flutter/foundation.dart'; // Added import for kIsWeb
 
 class ReportIncidentScreen extends StatefulWidget {
   const ReportIncidentScreen({super.key});
@@ -55,6 +57,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
     super.dispose();
   }
 
+  // Improved location accuracy by using high-accuracy mode
   Future<void> _getCurrentLocation() async {
     try {
       final permission = await Geolocator.checkPermission();
@@ -62,12 +65,14 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
         await Geolocator.requestPermission();
       }
 
-      final position = await Geolocator.getCurrentPosition();
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high, // Set high accuracy
+      );
       setState(() {
         _selectedLocation = LatLng(position.latitude, position.longitude);
       });
 
-      if (_mapController.center != _selectedLocation) {
+      if (_selectedLocation != null && _mapController != null) {
         _mapController.move(_selectedLocation!, 15);
       }
     } catch (e) {
@@ -91,6 +96,24 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error picking images: $e')),
+        );
+      }
+    }
+  }
+
+  // Added option to capture image using the camera
+  Future<void> _captureImage() async {
+    try {
+      final image = await _imagePicker.pickImage(source: ImageSource.camera);
+      if (image != null) {
+        setState(() {
+          _selectedImages.add(image);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error capturing image: $e')),
         );
       }
     }
@@ -194,36 +217,100 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextFormField(
-                      controller: _titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Title',
-                        border: OutlineInputBorder(),
+                    Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a title';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _descriptionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Description',
-                        border: OutlineInputBorder(),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextFormField(
+                              controller: _titleController,
+                              decoration: const InputDecoration(
+                                labelText: 'Title',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter a title';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _descriptionController,
+                              decoration: const InputDecoration(
+                                labelText: 'Description',
+                                border: OutlineInputBorder(),
+                              ),
+                              maxLines: 3,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter a description';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            DropdownButtonFormField<String>(
+                              value: _category,
+                              decoration: const InputDecoration(
+                                labelText: 'Category',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: _categories
+                                  .map((category) => DropdownMenuItem(
+                                        value: category,
+                                        child: Text(category),
+                                      ))
+                                  .toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _category = value!;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            DropdownButtonFormField<IncidentPriority>(
+                              value: _priority,
+                              decoration: const InputDecoration(
+                                labelText: 'Priority',
+                                border: OutlineInputBorder(),
+                              ),
+                              items: IncidentPriority.values
+                                  .map((priority) => DropdownMenuItem(
+                                        value: priority,
+                                        child: Text(priority.name.toUpperCase()),
+                                      ))
+                                  .toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _priority = value!;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _addressController,
+                              decoration: const InputDecoration(
+                                labelText: 'Address (optional)',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      maxLines: 3,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a description';
-                        }
-                        return null;
-                      },
                     ),
                     const SizedBox(height: 16),
                     Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: Column(
                         children: [
                           SizedBox(
@@ -232,9 +319,11 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
                               mapController: _mapController,
                               options: MapOptions(
                                 center: _selectedLocation ?? LatLng(0, 0),
-                                zoom: _selectedLocation != null ? 15 : 2,
-                                onTap: (_, point) {
-                                  setState(() => _selectedLocation = point);
+                                zoom: 15,
+                                onTap: (tapPosition, point) {
+                                  setState(() {
+                                    _selectedLocation = point;
+                                  });
                                 },
                               ),
                               children: [
@@ -242,7 +331,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
                                   urlTemplate:
                                       'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                                   userAgentPackageName:
-                                      'com.example.community_dashboard',
+                                      'com.safety.community_dashboard',
                                 ),
                                 if (_selectedLocation != null)
                                   MarkerLayer(
@@ -281,65 +370,66 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _addressController,
-                      decoration: const InputDecoration(
-                        labelText: 'Address (optional)',
-                        border: OutlineInputBorder(),
+                    Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Upload Images',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                ElevatedButton.icon(
+                                  onPressed: _pickImages,
+                                  icon: const Icon(Icons.photo_library),
+                                  label: const Text('Gallery'),
+                                ),
+                                const SizedBox(width: 16),
+                                ElevatedButton.icon(
+                                  onPressed: _captureImage,
+                                  icon: const Icon(Icons.camera_alt),
+                                  label: const Text('Camera'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            if (_selectedImages.isNotEmpty)
+                              SizedBox(
+                                height: 100,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: _selectedImages.length,
+                                  itemBuilder: (context, index) {
+                                    return Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: kIsWeb
+                                          ? Image.network(
+                                              _selectedImages[index].path,
+                                              fit: BoxFit.cover,
+                                              width: 100,
+                                            )
+                                          : Image.file(
+                                              File(_selectedImages[index].path),
+                                              fit: BoxFit.cover,
+                                              width: 100,
+                                            ),
+                                    );
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: _category,
-                      decoration: const InputDecoration(
-                        labelText: 'Category',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: _categories.map((category) {
-                        return DropdownMenuItem(
-                          value: category,
-                          child: Text(category),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() => _category = value);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<IncidentPriority>(
-                      value: _priority,
-                      decoration: const InputDecoration(
-                        labelText: 'Priority',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: IncidentPriority.values.map((priority) {
-                        return DropdownMenuItem(
-                          value: priority,
-                          child: Text(priority.name.toUpperCase()),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() => _priority = value);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: _pickImages,
-                      icon: const Icon(Icons.photo_camera),
-                      label: const Text('Add Photos'),
-                    ),
-                    if (_selectedImages.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        '${_selectedImages.length} photos selected',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                    const SizedBox(height: 24),
                     ElevatedButton(
                       onPressed: _submitReport,
                       child: const Text('Submit Report'),

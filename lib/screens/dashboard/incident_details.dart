@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../../models/incident.dart';
 import '../../services/incident_service.dart';
 import 'package:provider/provider.dart';
@@ -55,7 +56,7 @@ class IncidentDetails extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    // Added logic to display images in the incident details view
+                    // Updated to decode and display Base64-encoded images
                     if (incident.images.isNotEmpty)
                       SizedBox(
                         height: 200,
@@ -63,10 +64,11 @@ class IncidentDetails extends StatelessWidget {
                           scrollDirection: Axis.horizontal,
                           itemCount: incident.images.length,
                           itemBuilder: (context, index) {
+                            final imageBytes = base64Decode(incident.images[index]);
                             return Padding(
                               padding: const EdgeInsets.all(8.0),
-                              child: Image.network(
-                                incident.images[index],
+                              child: Image.memory(
+                                imageBytes,
                                 fit: BoxFit.cover,
                                 width: 200,
                               ),

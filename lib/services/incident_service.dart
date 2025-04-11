@@ -68,10 +68,11 @@ class IncidentService extends ChangeNotifier {
     throw UnimplementedError('Nearby incidents feature is not supported in the web environment.');
   }
 
-  Future<List<Incident>> fetchIncidents() async {
+  // Optimized `fetchIncidents` with pagination support
+  Future<List<Incident>> fetchIncidents({int page = 1, int limit = 10}) async {
     try {
-      debugPrint('Fetching incidents from backend...');
-      final response = await http.get(Uri.parse('http://localhost:3000/incidents'));
+      debugPrint('Fetching incidents from backend (page: $page, limit: $limit)...');
+      final response = await http.get(Uri.parse('http://localhost:3000/incidents?page=$page&limit=$limit'));
       debugPrint('Backend response: ${response.statusCode}');
       debugPrint('Response body: ${response.body}');
 
@@ -88,30 +89,33 @@ class IncidentService extends ChangeNotifier {
     }
   }
 
-  Future<Incident> createIncident(Incident incident) async {
-    try {
-      debugPrint('Sending incident data to backend:');
-      debugPrint(incident.toMongoDB().toString());
+  Future<void> createIncident(Incident incident) async {
+    await MongoDBService.initialize(); // Ensure MongoDB is initialized
+    final collection = MongoDBService.getCollection('incidents');
 
-      final response = await http.post(
-        Uri.parse('http://localhost:3000/incidents'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(incident.toMongoDB()),
-      );
+    // Updated image handling to remove `File` usage and ensure compatibility with Flutter Web
+    final base64Images = incident.images.map((image) {
+      final bytes = kIsWeb
+          ? base64Decode(image) // Decode Base64 directly for web
+          : Uint8List.fromList(image.codeUnits); // Use Uint8List for other platforms
+      return base64Encode(bytes);
+    }).toList();
 
-      debugPrint('Backend response: ${response.statusCode}');
-      debugPrint('Response body: ${response.body}');
+    final document = {
+      'title': incident.title,
+      'description': incident.description,
+      'location': incident.location,
+      'address': incident.address,
+      'category': incident.category,
+      'priority': incident.priority.name,
+      'status': incident.status.name,
+      'reporterId': incident.reporterId,
+      'images': base64Images, // Store Base64-encoded images
+      'createdAt': incident.createdAt.toIso8601String(),
+      'resolvedAt': incident.resolvedAt?.toIso8601String(),
+    };
 
-      if (response.statusCode == 201) {
-        return Incident.fromJson(jsonDecode(response.body));
-      } else {
-        debugPrint('Failed to create incident: ${response.body}');
-        throw Exception('Failed to create incident');
-      }
-    } catch (e) {
-      debugPrint('Error creating incident: $e');
-      throw Exception('An unexpected error occurred while creating the incident.');
-    }
+    await collection.insertOne(document);
   }
 
   Future<void> updateIncidentStatus(String id, IncidentStatus status) async {
@@ -141,5 +145,13 @@ class IncidentService extends ChangeNotifier {
       }
     }
     return base64Images;
+  }
+
+  // Added `incidentStream` getter to provide a stream of incidents
+  Stream<List<Incident>> get incidentStream async* {
+    while (true) {
+      await Future.delayed(const Duration(seconds: 5)); // Poll every 5 seconds
+      yield await fetchIncidents();
+    }
   }
 }

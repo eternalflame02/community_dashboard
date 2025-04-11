@@ -4,84 +4,142 @@ import '../../services/incident_service.dart';
 import '../../models/incident.dart';
 import '../dashboard/incident_details.dart';
 
-class ReportsList extends StatelessWidget {
-  final IncidentStatus? filterStatus;
+class ReportsList extends StatefulWidget {
+  const ReportsList({super.key});
 
-  const ReportsList({
-    super.key,
-    this.filterStatus,
-  });
+  @override
+  State<ReportsList> createState() => _ReportsListState();
+}
+
+class _ReportsListState extends State<ReportsList> {
+  final ScrollController _scrollController = ScrollController();
+  final List<Incident> _incidents = [];
+  bool _isLoading = false;
+  int _currentPage = 1;
+  final int _limit = 10;
+  bool _showCompleted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMoreIncidents();
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent && !_isLoading) {
+        _fetchMoreIncidents();
+      }
+    });
+  }
+
+  Future<void> _fetchMoreIncidents() async {
+    setState(() => _isLoading = true);
+    try {
+      final newIncidents = await Provider.of<IncidentService>(context, listen: false)
+          .fetchIncidents(page: _currentPage, limit: _limit);
+      setState(() {
+        _incidents.addAll(newIncidents);
+        _currentPage++;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading incidents: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Incident>>(
-      future: Provider.of<IncidentService>(context, listen: false).fetchIncidents(),
-      builder: (context, snapshot) {
-        debugPrint('Snapshot state: ${snapshot.connectionState}');
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError) {
-          debugPrint('Error in FutureBuilder: ${snapshot.error}');
-          return Center(child: Text('Error: ${snapshot.error}'));
-        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          debugPrint('No incidents found.');
-          return const Center(child: Text('No incidents found.'));
-        }
+    final filteredIncidents = _incidents.where((incident) => incident.status != IncidentStatus.resolved).toList();
 
-        final incidents = snapshot.data!;
-        debugPrint('Fetched ${incidents.length} incidents.');
+    return Column(
+      children: [
+        ExpansionPanelList(
+          expansionCallback: (int index, bool isExpanded) {
+            setState(() {
+              _showCompleted = !_showCompleted;
+            });
+          },
+          children: [
+            ExpansionPanel(
+              headerBuilder: (BuildContext context, bool isExpanded) {
+                return ListTile(
+                  title: const Text('Completed Reports'),
+                );
+              },
+              body: Column(
+                children: _incidents
+                    .where((incident) => incident.status == IncidentStatus.resolved)
+                    .map((incident) => ListTile(
+                          title: Text(incident.title),
+                          subtitle: Text(incident.description),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => IncidentDetails(incident: incident),
+                              ),
+                            );
+                          },
+                        ))
+                    .toList(),
+              ),
+              isExpanded: _showCompleted,
+            ),
+          ],
+        ),
+        Expanded(
+          child: ListView.separated(
+            controller: _scrollController,
+            itemCount: filteredIncidents.length + (_isLoading ? 1 : 0),
+            separatorBuilder: (context, index) => const Divider(),
+            itemBuilder: (context, index) {
+              if (index == filteredIncidents.length) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-        return ListView.builder(
-          itemCount: incidents.length,
-          itemBuilder: (context, index) {
-            final incident = incidents[index];
-            return ListTile(
-              leading: incident.images.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: Image.network(
-                        incident.images.first,
-                        width: 48,
-                        height: 48,
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                  : Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Icon(
-                        Icons.photo_outlined,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-              title: Text(incident.title),
-              subtitle: Text(incident.description),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _getPriorityColor(incident.priority).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _getPriorityColor(incident.priority),
-                      ),
-                    ),
-                    child: Text(
-                      incident.priority.name.toUpperCase(),
-                      style: TextStyle(
-                        color: _getPriorityColor(incident.priority),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
+              final incident = filteredIncidents[index];
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListTile(
+                  leading: incident.images.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            incident.images.first,
+                            width: 48,
+                            height: 48,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.photo_outlined,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                  title: Text(
+                    incident.title,
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  IconButton(
+                  subtitle: Text(
+                    incident.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: IconButton(
                     icon: Icon(
                       incident.status == IncidentStatus.resolved
                           ? Icons.check_circle
@@ -92,20 +150,20 @@ class ReportsList extends StatelessWidget {
                     ),
                     onPressed: () => _markAsResolved(context, incident),
                   ),
-                ],
-              ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => IncidentDetails(incident: incident),
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => IncidentDetails(incident: incident),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -131,25 +189,9 @@ class ReportsList extends StatelessWidget {
     }
   }
 
-  Color _getStatusColor(IncidentStatus status) {
-    switch (status) {
-      case IncidentStatus.open:
-        return Colors.red;
-      case IncidentStatus.inProgress:
-        return Colors.orange;
-      case IncidentStatus.resolved:
-        return Colors.green;
-    }
-  }
-
-  Color _getPriorityColor(IncidentPriority priority) {
-    switch (priority) {
-      case IncidentPriority.low:
-        return Colors.green;
-      case IncidentPriority.medium:
-        return Colors.orange;
-      case IncidentPriority.high:
-        return Colors.red;
-    }
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 }

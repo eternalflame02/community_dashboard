@@ -107,9 +107,10 @@ class _IncidentsMapState extends State<IncidentsMap> {
           return const Center(child: Text('No incidents found'));
         } else {
           final incidents = snapshot.data!;
-          // Added validation for `latLng` access and empty incidents list
+          // Filter out resolved incidents from the map
           final markers = incidents.where((incident) {
-            return incident.location['coordinates'] != null &&
+            return incident.status != IncidentStatus.resolved &&
+                   incident.location['coordinates'] != null &&
                    incident.location['coordinates'].length == 2;
           }).map((incident) {
             return Marker(
