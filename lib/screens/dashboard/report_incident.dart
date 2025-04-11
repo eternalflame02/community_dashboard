@@ -67,7 +67,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
         _selectedLocation = LatLng(position.latitude, position.longitude);
       });
 
-      if (_mapController.camera.center != _selectedLocation) {
+      if (_mapController.center != _selectedLocation) {
         _mapController.move(_selectedLocation!, 15);
       }
     } catch (e) {
@@ -228,8 +228,8 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
                             child: FlutterMap(
                               mapController: _mapController,
                               options: MapOptions(
-                                initialCenter: _selectedLocation ?? const LatLng(0, 0),
-                                initialZoom: _selectedLocation != null ? 15 : 2,
+                                center: _selectedLocation ?? LatLng(0, 0),
+                                zoom: _selectedLocation != null ? 15 : 2,
                                 onTap: (_, point) {
                                   setState(() => _selectedLocation = point);
                                 },
@@ -245,10 +245,8 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
                                   MarkerLayer(
                                     markers: [
                                       Marker(
-                                        width: 40,
-                                        height: 40,
                                         point: _selectedLocation!,
-                                        child: const Icon(
+                                        builder: (context) => const Icon(
                                           Icons.location_on,
                                           color: Colors.red,
                                           size: 40,

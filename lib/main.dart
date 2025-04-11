@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'services/auth_service.dart';
 import 'services/incident_service.dart';
-import 'services/mongodb_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/auth/login_screen.dart';
 
@@ -22,14 +21,11 @@ Future<void> main() async {
         appId: "1:624716403094:web:6fa618ed905370d8bf4db7"
       ),
     );
-
-    if (!kIsWeb) {
-      await MongoDBService.initialize();
-    }
+    debugPrint('✅ Firebase initialized successfully');
   } catch (e, stackTrace) {
     debugPrint('🔥 Initialization error: $e');
     debugPrint('🧵 Stack trace: $stackTrace');
-    runApp(const AppError(message: 'Failed to initialize app. Please try again.'));
+    runApp(AppError(message: 'Failed to initialize app. Error: $e'));
     return;
   }
 

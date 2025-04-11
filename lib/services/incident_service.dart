@@ -6,6 +6,8 @@ import 'mongodb_service.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:image/image.dart' as img;
+import 'package:image_picker/image_picker.dart';
 
 class IncidentService extends ChangeNotifier {
   String _searchQuery = '';
@@ -17,7 +19,6 @@ class IncidentService extends ChangeNotifier {
     _searchQuery = query;
     notifyListeners();
   }
-
 
   String get searchQuery => _searchQuery;
 
@@ -50,60 +51,21 @@ class IncidentService extends ChangeNotifier {
 
   Stream<List<Incident>> getIncidents({IncidentStatus? status}) async* {
     try {
-      final collection = MongoDBService.getCollection(MongoConfig.incidentsCollection);
-      
-      final query = status != null ? where.eq('status', status.index) : where;
-      if (_filterCategory != null) {
-        query.and(where.eq('category', _filterCategory));
-      }
-      if (_filterPriority != null) {
-        query.and(where.eq('priority', _filterPriority!.index));
-      }
-      query.sortBy('createdAt', descending: true);
-
-      final cursor = collection.find(query);
-      final incidents = <Incident>[];
-      await for (final doc in cursor) {
-        try {
-          incidents.add(Incident.fromMongoDB(doc));
-          yield incidents;
-        } catch (e) {
-          debugPrint('Error parsing incident: $e');
-          throw Exception('An unexpected error occurred while processing incidents. Please try again later.');
-        }
+      final response = await http.get(Uri.parse('http://localhost:3000/incidents'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        yield data.map((json) => Incident.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to fetch incidents: ${response.body}');
       }
     } catch (e) {
       debugPrint('Error fetching incidents: $e');
-      throw Exception('An unexpected error occurred while processing incidents. Please try again later.');
+      throw Exception('An unexpected error occurred while fetching incidents.');
     }
   }
 
   Stream<List<Incident>> getNearbyIncidents(LatLng center, double radiusKm) async* {
-    try {
-      final collection = MongoDBService.getCollection(MongoConfig.incidentsCollection);
-      
-      // MongoDB geospatial query
-      final query = where.near('location', 
-        [center.longitude, center.latitude],
-        radiusKm * 1000, // Convert to meters
-      );
-
-      final cursor = collection.find(query);
-      final incidents = <Incident>[];
-      
-      await for (final doc in cursor) {
-        try {
-          incidents.add(Incident.fromMongoDB(doc));
-          yield incidents;
-        } catch (e) {
-          debugPrint('Error parsing incident: $e');
-          throw Exception('An unexpected error occurred while processing incidents. Please try again later.');
-        }
-      }
-    } catch (e) {
-      debugPrint('Error fetching nearby incidents: $e');
-      throw Exception('An unexpected error occurred while processing incidents. Please try again later.');
-    }
+    throw UnimplementedError('Nearby incidents feature is not supported in the web environment.');
   }
 
   Future<List<Incident>> fetchIncidents() async {
@@ -117,7 +79,8 @@ class IncidentService extends ChangeNotifier {
         List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => Incident.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load incidents');
+        debugPrint('Error response body: ${response.body}');
+        throw Exception('Failed to load incidents: ${response.body}');
       }
     } catch (e) {
       debugPrint('Error fetching incidents: $e');
@@ -165,5 +128,18 @@ class IncidentService extends ChangeNotifier {
       debugPrint('Error updating incident status: $e');
       throw Exception('An unexpected error occurred while updating the incident status.');
     }
+  }
+
+  Future<List<String>> _compressAndUploadImages(List<XFile> images) async {
+    final List<String> base64Images = [];
+    for (final image in images) {
+      final bytes = await image.readAsBytes();
+      final decodedImage = img.decodeImage(Uint8List.fromList(bytes));
+      if (decodedImage != null) {
+        final compressedImage = img.encodeJpg(decodedImage, quality: 70); // Compress to 70% quality
+        base64Images.add(base64Encode(compressedImage));
+      }
+    }
+    return base64Images;
   }
 }

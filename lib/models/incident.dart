@@ -66,11 +66,20 @@ class Incident {
       address: json['address'] ?? '',
       category: json['category'] ?? '',
       priority: IncidentPriority.values[json['priority'] ?? 0],
-      status: IncidentStatus.values[int.tryParse(json['status'] ?? '0') ?? 0], // Handle status as string
+      status: json['status'] is String
+          ? IncidentStatus.values.firstWhere(
+              (e) => e.toString().split('.').last == json['status'],
+              orElse: () => IncidentStatus.open,
+            )
+          : IncidentStatus.values[json['status'] ?? 0],
       reporterId: json['reporterId'] ?? '',
       images: List<String>.from(json['images'] ?? []),
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
-      resolvedAt: json['resolvedAt'] != null ? DateTime.parse(json['resolvedAt']) : null,
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt']) ?? DateTime.now()
+          : DateTime.now(),
+      resolvedAt: json['resolvedAt'] != null
+          ? DateTime.tryParse(json['resolvedAt'])
+          : null,
     );
   }
 

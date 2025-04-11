@@ -7,7 +7,8 @@ const app = express();
 
 // Middleware
 app.use(bodyParser.json());
-app.use(cors({ origin: 'http://localhost:1234' })); // Adjust as per your frontend port
+// Updated CORS configuration to allow all origins for development
+app.use(cors({ origin: '*' }));
 
 // Request Logger
 app.use((req, res, next) => {
@@ -23,7 +24,9 @@ app.use((err, req, res, next) => {
 });
 
 // Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/community_dashboard')
+const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/community_dashboard';
+
+mongoose.connect(mongoUri)
   .then(() => {
     console.log('✅ Connected to MongoDB');
   })
@@ -31,6 +34,19 @@ mongoose.connect('mongodb://localhost:27017/community_dashboard')
     console.error('❌ Error connecting to MongoDB:', err);
     process.exit(1); // Exit the process if MongoDB connection fails
   });
+
+// Added MongoDB connection status logging
+mongoose.connection.on('connected', () => {
+  console.log('✅ MongoDB connected');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ MongoDB connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.warn('⚠️ MongoDB disconnected');
+});
 
 // Mongoose Schema & Model
 const incidentSchema = new mongoose.Schema({
@@ -50,6 +66,16 @@ app.get('/', (req, res) => {
   res.send('🚀 Backend server is up and running!');
 });
 
+// Added health check endpoint to verify MongoDB connection
+app.get('/health', async (req, res) => {
+  try {
+    const isConnected = mongoose.connection.readyState === 1; // 1 means connected
+    res.json({ status: isConnected ? 'connected' : 'disconnected' });
+  } catch (err) {
+    res.status(500).json({ error: 'Health check failed', details: err.message });
+  }
+});
+
 // Get all incidents
 app.get('/incidents', async (req, res) => {
   try {
@@ -61,10 +87,17 @@ app.get('/incidents', async (req, res) => {
   }
 });
 
-// Add a new incident
+// Updated POST /incidents to map integer status values to strings
 app.post('/incidents', async (req, res) => {
   try {
     console.log('Received data:', req.body);
+
+    // Map integer status values to strings
+    const statusMap = ['open', 'inProgress', 'resolved'];
+    if (typeof req.body.status === 'number') {
+      req.body.status = statusMap[req.body.status];
+    }
+
     const incident = new Incident(req.body);
     await incident.save();
     res.status(201).json(incident);
