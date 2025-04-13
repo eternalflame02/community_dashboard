@@ -1,4 +1,4 @@
-# Community Dashboard
+# Community Dashboard (on progress)
 
 A Flutter application for community incident reporting and management.
 
