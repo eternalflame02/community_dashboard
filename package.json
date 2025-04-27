@@ -2,8 +2,11 @@
   "dependencies": {
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "firebase": "^11.6.0",
-    "mongoose": "^8.13.2"
+    "mongoose": "^8.14.0",
+    "multer": "^1.4.4",
+    "multer-gridfs-storage": "^5.0.2"
   }
 }

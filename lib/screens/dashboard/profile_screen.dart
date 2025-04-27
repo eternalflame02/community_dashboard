@@ -21,27 +21,33 @@ class ProfileScreen extends StatelessWidget {
           Center(
             child: Stack(
               children: [
-                CircleAvatar(
-                  radius: 50,
-                  backgroundImage: user?.photoURL != null
-                      ? NetworkImage(user!.photoURL!)
-                      : null,
-                  child: user?.photoURL == null
-                      ? const Icon(Icons.person, size: 50)
-                      : null,
+                Tooltip(
+                  message: user?.photoURL == null ? 'Default profile icon' : 'Profile photo',
+                  child: CircleAvatar(
+                    radius: 50,
+                    backgroundImage: user?.photoURL != null
+                        ? NetworkImage(user!.photoURL!)
+                        : null,
+                    child: user?.photoURL == null
+                        ? const Icon(Icons.person, size: 50)
+                        : null,
+                  ),
                 ),
                 Positioned(
                   bottom: 0,
                   right: 0,
-                  child: CircleAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    radius: 18,
-                    child: IconButton(
-                      icon: const Icon(Icons.camera_alt, size: 18),
-                      color: Theme.of(context).colorScheme.onPrimary,
-                      onPressed: () {
-                        // TODO: Implement photo upload
-                      },
+                  child: Tooltip(
+                    message: 'Change profile photo',
+                    child: CircleAvatar(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      radius: 18,
+                      child: IconButton(
+                        icon: const Icon(Icons.camera_alt, size: 18),
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        onPressed: () {
+                          // TODO: Implement photo upload
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -159,7 +165,10 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon),
+      leading: Tooltip(
+        message: title,
+        child: Icon(icon),
+      ),
       title: Text(title),
       trailing: trailing ?? const Icon(Icons.chevron_right),
       onTap: () {

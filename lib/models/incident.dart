@@ -1,8 +1,16 @@
-import 'package:mongo_dart/mongo_dart.dart';
 import 'package:latlong2/latlong.dart';
 
-enum IncidentPriority { low, medium, high }
-enum IncidentStatus { open, inProgress, resolved }
+enum IncidentPriority {
+  low,
+  medium,
+  high
+}
+
+enum IncidentStatus {
+  open,
+  inProgress,
+  resolved
+}
 
 class Incident {
   final String id;
@@ -11,8 +19,8 @@ class Incident {
   final Map<String, dynamic> location;
   final String address;
   final String category;
-  final IncidentPriority priority;
   final IncidentStatus status;
+  final IncidentPriority priority;
   final String reporterId;
   final List<String> images;
   final DateTime createdAt;
@@ -25,77 +33,60 @@ class Incident {
     required this.location,
     required this.address,
     required this.category,
-    required this.priority,
     required this.status,
+    required this.priority,
     required this.reporterId,
     required this.images,
     required this.createdAt,
     this.resolvedAt,
   });
 
-  LatLng get latLng => LatLng(
-        location['coordinates'][1] as double, // latitude
-        location['coordinates'][0] as double, // longitude
-      );
-
-  // From MongoDB
-  factory Incident.fromMongoDB(Map<String, dynamic> doc) {
-    return Incident(
-      id: (doc['_id'] as ObjectId).toHexString(),
-      title: doc['title'] as String,
-      description: doc['description'] as String,
-      location: doc['location'] as Map<String, dynamic>,
-      address: doc['address'] as String,
-      category: doc['category'] as String,
-      priority: IncidentPriority.values[doc['priority'] as int],
-      status: IncidentStatus.values[doc['status'] as int],
-      reporterId: doc['reporterId'] as String,
-      images: List<String>.from(doc['images'] as List),
-      createdAt: doc['createdAt'] as DateTime,
-      resolvedAt: doc['resolvedAt'] as DateTime?,
-    );
+  // Getter for LatLng to use with flutter_map
+  LatLng get latLng {
+    final coordinates = location['coordinates'] as List;
+    return LatLng(coordinates[1], coordinates[0]); // [longitude, latitude] to [latitude, longitude]
   }
 
-  // From generic JSON (for web/testing/mock data)
   factory Incident.fromJson(Map<String, dynamic> json) {
     return Incident(
       id: json['_id'] ?? '',
-      title: json['title'] ?? '',
-      description: json['description'] ?? '',
-      location: json['location'] ?? {'coordinates': [0.0, 0.0]},
-      address: json['address'] ?? '',
-      category: json['category'] ?? '',
-      priority: IncidentPriority.values[json['priority'] ?? 0],
-      status: json['status'] is String
-          ? IncidentStatus.values.firstWhere(
-              (e) => e.toString().split('.').last == json['status'],
-              orElse: () => IncidentStatus.open,
-            )
-          : IncidentStatus.values[json['status'] ?? 0],
-      reporterId: json['reporterId'] ?? '',
-      images: List<String>.from(json['images'] ?? []),
-      createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt']) ?? DateTime.now()
-          : DateTime.now(),
-      resolvedAt: json['resolvedAt'] != null
-          ? DateTime.tryParse(json['resolvedAt'])
-          : null,
+      title: json['title'] as String,
+      description: json['description'] as String,
+      location: json['location'] as Map<String, dynamic>,
+      address: json['address'] as String,
+      category: json['category'] as String,
+      status: _parseStatus(json['status'] as String),
+      priority: _parsePriority(json['priority'] as int),
+      reporterId: json['reporterId'] as String,
+      images: (json['images'] as List<dynamic>).cast<String>(),
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      resolvedAt: json['resolvedAt'] != null ? DateTime.parse(json['resolvedAt'] as String) : null,
     );
   }
 
-  Map<String, dynamic> toMongoDB() {
-    return {
-      'title': title,
-      'description': description,
-      'location': location,
-      'address': address,
-      'category': category,
-      'priority': priority.index,
-      'status': status.index,
-      'reporterId': reporterId,
-      'images': images,
-      'createdAt': createdAt.toIso8601String(), // Convert DateTime to ISO 8601 string
-      'resolvedAt': resolvedAt?.toIso8601String(), // Convert DateTime to ISO 8601 string if not null
-    };
+  static IncidentStatus _parseStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'open':
+        return IncidentStatus.open;
+      case 'inprogress':
+        return IncidentStatus.inProgress;
+      case 'resolved':
+        return IncidentStatus.resolved;
+      default:
+        return IncidentStatus.open;
+    }
+  }
+
+  static IncidentPriority _parsePriority(int priority) {
+    switch (priority) {
+      case 0:
+        return IncidentPriority.low;
+      case 1:
+        return IncidentPriority.medium;
+      case 2:
+        return IncidentPriority.high;
+      default:
+        return IncidentPriority.medium;
+    }
   }
 }

@@ -1,8 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:mongo_dart/mongo_dart.dart';
 import '../models/incident.dart';
-import '../config/mongodb_config.dart';
-import 'mongodb_service.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -71,16 +68,14 @@ class IncidentService extends ChangeNotifier {
   // Optimized `fetchIncidents` with pagination support
   Future<List<Incident>> fetchIncidents({int page = 1, int limit = 10}) async {
     try {
-      debugPrint('Fetching incidents from backend (page: $page, limit: $limit)...');
-      final response = await http.get(Uri.parse('http://localhost:3000/incidents?page=$page&limit=$limit'));
-      debugPrint('Backend response: ${response.statusCode}');
-      debugPrint('Response body: ${response.body}');
-
+      debugPrint('Fetching incidents from backend...');
+      final response = await http.get(Uri.parse('http://localhost:3000/incidents'));
+      
       if (response.statusCode == 200) {
         List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => Incident.fromJson(json)).toList();
       } else {
-        debugPrint('Error response body: ${response.body}');
+        debugPrint('Error response: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to load incidents: ${response.body}');
       }
     } catch (e) {
@@ -90,32 +85,33 @@ class IncidentService extends ChangeNotifier {
   }
 
   Future<void> createIncident(Incident incident) async {
-    await MongoDBService.initialize(); // Ensure MongoDB is initialized
-    final collection = MongoDBService.getCollection('incidents');
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost:3000/incidents'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'title': incident.title,
+          'description': incident.description,
+          'location': incident.location,
+          'address': incident.address,
+          'category': incident.category,
+          'priority': incident.priority.index,
+          'status': incident.status.name.toLowerCase(), // Convert enum to lowercase string
+          'reporterId': incident.reporterId,
+          'images': incident.images,
+          'createdAt': incident.createdAt.toIso8601String(),
+          'resolvedAt': incident.resolvedAt?.toIso8601String(),
+        }),
+      );
 
-    // Updated image handling to remove `File` usage and ensure compatibility with Flutter Web
-    final base64Images = incident.images.map((image) {
-      final bytes = kIsWeb
-          ? base64Decode(image) // Decode Base64 directly for web
-          : Uint8List.fromList(image.codeUnits); // Use Uint8List for other platforms
-      return base64Encode(bytes);
-    }).toList();
-
-    final document = {
-      'title': incident.title,
-      'description': incident.description,
-      'location': incident.location,
-      'address': incident.address,
-      'category': incident.category,
-      'priority': incident.priority.name,
-      'status': incident.status.name,
-      'reporterId': incident.reporterId,
-      'images': base64Images, // Store Base64-encoded images
-      'createdAt': incident.createdAt.toIso8601String(),
-      'resolvedAt': incident.resolvedAt?.toIso8601String(),
-    };
-
-    await collection.insertOne(document);
+      if (response.statusCode != 201) {
+        debugPrint('Error response from server: ${response.body}');
+        throw Exception('Failed to create incident: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Error creating incident: $e');
+      throw Exception('An unexpected error occurred while creating the incident.');
+    }
   }
 
   Future<void> updateIncidentStatus(String id, IncidentStatus status) async {
@@ -152,6 +148,27 @@ class IncidentService extends ChangeNotifier {
     while (true) {
       await Future.delayed(const Duration(seconds: 5)); // Poll every 5 seconds
       yield await fetchIncidents();
+    }
+  }
+
+  // Updated to convert Uint8List to String before returning
+  Future<String> convertUint8ListToString(Uint8List response) async {
+    return utf8.decode(response);
+  }
+
+  // Fetch a single incident by its ID
+  Future<Incident> fetchIncidentById(String id) async {
+    try {
+      final response = await http.get(Uri.parse('http://localhost:3000/incidents/$id'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return Incident.fromJson(data);
+      } else {
+        throw Exception('Failed to fetch incident: \\${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Error fetching incident by id: $e');
+      throw Exception('An unexpected error occurred while fetching the incident.');
     }
   }
 }

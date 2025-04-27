@@ -1,58 +1,103 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
 const cors = require('cors');
+const bodyParser = require('body-parser');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 
 // Middleware
-// Increased the size limit for JSON payloads in body-parser
-app.use(bodyParser.json({ limit: '10mb' })); // Set limit to 10 MB for image uploads
-// Updated CORS configuration to allow all origins for development
-app.use(cors({ origin: '*' }));
+app.use(cors());
+app.use(bodyParser.json({ limit: '10mb' }));
 
-// Request Logger
-app.use((req, res, next) => {
-  console.log(`Incoming request: ${req.method} ${req.url}`);
-  console.log('Request body:', req.body);
-  next();
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = 'uploads';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir);
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
 });
 
-// Error Logger
-app.use((err, req, res, next) => {
-  console.error('Error occurred:', err);
-  res.status(500).json({ error: 'Internal Server Error', details: err.message });
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-// Connect to MongoDB
-const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/community_dashboard';
+// MongoDB Atlas Connection with improved error handling
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      tls: true,
+      tlsAllowInvalidCertificates: false
+    });
+    console.log(`✅ MongoDB Atlas Connected: ${conn.connection.host}`);
 
-mongoose.connect(mongoUri)
-  .then(() => {
-    console.log('✅ Connected to MongoDB');
-  })
-  .catch((err) => {
-    console.error('❌ Error connecting to MongoDB:', err);
-    process.exit(1); // Exit the process if MongoDB connection fails
-  });
+    // Create indexes after successful connection
+    await setupIndexes();
+  } catch (error) {
+    console.error('❌ MongoDB Connection Error:', error.message);
+    process.exit(1);
+  }
+};
 
-// Added MongoDB connection status logging
+// Setup indexes function
+const setupIndexes = async () => {
+  try {
+    console.log('Setting up database indexes...');
+    
+    // Create indexes for the incidents collection
+    await Incident.collection.createIndexes([
+      { key: { 'location': '2dsphere' }, name: 'location_2dsphere' },
+      { key: { 'category': 1 }, name: 'category_1' },
+      { key: { 'status': 1 }, name: 'status_1' },
+      { key: { 'priority': 1 }, name: 'priority_1' },
+      { key: { 'createdAt': -1 }, name: 'createdAt_-1' },
+      { key: { 'reporterId': 1 }, name: 'reporterId_1' }
+    ]);
+
+    console.log('✅ Database indexes created successfully');
+  } catch (error) {
+    console.error('❌ Error creating indexes:', error);
+    throw error;
+  }
+};
+
+// Monitor MongoDB connection events
 mongoose.connection.on('connected', () => {
-  console.log('✅ MongoDB connected');
+  console.log('🟢 MongoDB connection established');
 });
 
 mongoose.connection.on('error', (err) => {
-  console.error('❌ MongoDB connection error:', err);
+  console.error('🔴 MongoDB connection error:', err);
 });
 
 mongoose.connection.on('disconnected', () => {
-  console.warn('⚠️ MongoDB disconnected');
+  console.log('🟡 MongoDB connection disconnected');
 });
 
-// Mongoose Schema & Model
-// Updated `incidentSchema` to include `address`, `category`, and `description` fields
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  await mongoose.connection.close();
+  process.exit(0);
+});
+
+// Connect to MongoDB
+connectDB();
+
+// Basic schema for incidents
 const incidentSchema = new mongoose.Schema({
-  title: String,
+  title: { type: String, required: true },
   description: { type: String, required: true },
   location: {
     type: { type: String, enum: ['Point'], required: true },
@@ -70,36 +115,28 @@ const incidentSchema = new mongoose.Schema({
     enum: [0, 1, 2], // 0: low, 1: medium, 2: high
     required: true,
   },
-}, { timestamps: true }); // Automatically adds createdAt and updatedAt
+  reporterId: { type: String, required: true },
+  images: [String],
+  createdAt: { type: Date, default: Date.now },
+  resolvedAt: Date
+}, { timestamps: true });
 
 const Incident = mongoose.model('Incident', incidentSchema);
 
-// Ensure indexes for `address`, `category`, and `description`
-Incident.collection.createIndex({ address: 1 }, { name: 'address_1' });
-Incident.collection.createIndex({ category: 1 }, { name: 'category_1' });
-Incident.collection.createIndex({ description: 1 }, { name: 'description_1' });
-
-// Health Check Route
-app.get('/', (req, res) => {
-  res.send('🚀 Backend server is up and running!');
-});
-
-// Added health check endpoint to verify MongoDB connection
-app.get('/health', async (req, res) => {
-  try {
-    const isConnected = mongoose.connection.readyState === 1; // 1 means connected
-    res.json({ status: isConnected ? 'connected' : 'disconnected' });
-  } catch (err) {
-    res.status(500).json({ error: 'Health check failed', details: err.message });
-  }
+// Routes
+app.get('/health', (req, res) => {
+  const status = {
+    server: 'running',
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString()
+  };
+  res.json(status);
 });
 
 // Get all incidents
 app.get('/incidents', async (req, res) => {
   try {
-    console.log('Fetching all incidents');
-    const incidents = await Incident.find();
-    console.log('Fetched incidents:', incidents);
+    const incidents = await Incident.find().sort('-createdAt');
     res.json(incidents);
   } catch (err) {
     console.error('Error fetching incidents:', err);
@@ -107,71 +144,54 @@ app.get('/incidents', async (req, res) => {
   }
 });
 
-// Added validation and handling for `images` and `priority` fields in POST /incidents
-// Fixed mapping of numeric `status` values to string values
+// Create new incident
 app.post('/incidents', async (req, res) => {
   try {
-    console.log('Received data:', req.body);
-
-    // Validate location
-    if (!req.body.location || !req.body.location.coordinates || req.body.location.coordinates.length !== 2) {
-      console.log('Invalid location data:', req.body.location);
-      return res.status(400).json({ error: 'Invalid location data' });
-    }
-
-    // Validate priority
-    if (typeof req.body.priority !== 'number' || req.body.priority < 0 || req.body.priority > 2) {
-      console.log('Invalid priority value:', req.body.priority);
-      return res.status(400).json({ error: 'Invalid priority value' });
-    }
-
-    // Validate images
-    if (!Array.isArray(req.body.images)) {
-      console.log('Invalid images data:', req.body.images);
-      return res.status(400).json({ error: 'Invalid images data' });
-    }
-
-    // Map numeric status values to string values
-    const statusMap = ['open', 'inProgress', 'resolved'];
-    if (typeof req.body.status === 'number') {
-      req.body.status = statusMap[req.body.status];
-    }
-
     const incident = new Incident(req.body);
     await incident.save();
-    console.log('Incident saved successfully:', incident);
     res.status(201).json(incident);
   } catch (err) {
-    console.error('Error saving incident:', err);
-    res.status(500).json({ error: 'Failed to save incident', details: err.message });
+    console.error('Error creating incident:', err);
+    res.status(500).json({ error: 'Failed to create incident', details: err.message });
   }
 });
 
-// Added detailed logging for status updates and image handling
+// Update incident status
 app.patch('/incidents/:id', async (req, res) => {
   try {
-    console.log(`Updating incident with ID: ${req.params.id}`);
-    console.log('Request body:', req.body);
-
-    const updatedIncident = await Incident.findByIdAndUpdate(
+    const incident = await Incident.findByIdAndUpdate(
       req.params.id,
-      { status: req.body.status },
+      { $set: req.body },
       { new: true }
     );
-
-    if (!updatedIncident) {
-      console.log('Incident not found');
+    if (!incident) {
       return res.status(404).json({ error: 'Incident not found' });
     }
-
-    console.log('Incident updated successfully:', updatedIncident);
-    res.json(updatedIncident);
+    res.json(incident);
   } catch (err) {
     console.error('Error updating incident:', err);
     res.status(500).json({ error: 'Failed to update incident', details: err.message });
   }
 });
 
-// Start the server
+// Handle image uploads
+app.post('/upload', upload.single('file'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    const imageUrl = `http://localhost:${process.env.PORT}/uploads/${req.file.filename}`;
+    res.status(200).json({ url: imageUrl });
+  } catch (err) {
+    console.error('Error uploading file:', err);
+    res.status(500).json({ error: 'Failed to upload file', details: err.message });
+  }
+});
+
+// Serve uploaded files
+app.use('/uploads', express.static('uploads'));
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🟢 Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
