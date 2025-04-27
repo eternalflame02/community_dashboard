@@ -64,7 +64,8 @@ class _IncidentsMapState extends State<IncidentsMap> {
         return;
       }
 
-      Position position = await Geolocator.getCurrentPosition();
+      // Use high accuracy mode always
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
       if (mounted) {
         setState(() {
           _currentPosition = position;
