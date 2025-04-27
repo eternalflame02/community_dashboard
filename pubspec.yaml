@@ -25,6 +25,7 @@ dependencies:
   image: ^4.0.15
   http: ^1.1.0
   latlong2: ^0.9.1
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:

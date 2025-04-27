@@ -67,8 +67,35 @@ class MyApp extends StatelessWidget {
         builder: (context, themeProvider, child) {
           return MaterialApp(
             title: 'Community Dashboard',
-            theme: ThemeData.light(),
-            darkTheme: ThemeData.dark(),
+            theme: ThemeData(
+              useMaterial3: true,
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.blue,
+                primary: Colors.blue,
+                secondary: Colors.orange,
+              ),
+              cardTheme: CardTheme(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              elevatedButtonTheme: ElevatedButtonThemeData(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+            darkTheme: ThemeData.dark().copyWith(
+              useMaterial3: true,
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.blue,
+                brightness: Brightness.dark,
+              ),
+            ),
             themeMode: themeProvider.themeMode,
             home: Consumer<AuthService>(
               builder: (context, authService, _) {

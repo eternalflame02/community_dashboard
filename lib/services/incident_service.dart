@@ -155,4 +155,20 @@ class IncidentService extends ChangeNotifier {
   Future<String> convertUint8ListToString(Uint8List response) async {
     return utf8.decode(response);
   }
+
+  // Fetch a single incident by its ID
+  Future<Incident> fetchIncidentById(String id) async {
+    try {
+      final response = await http.get(Uri.parse('http://localhost:3000/incidents/$id'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return Incident.fromJson(data);
+      } else {
+        throw Exception('Failed to fetch incident: \\${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Error fetching incident by id: $e');
+      throw Exception('An unexpected error occurred while fetching the incident.');
+    }
+  }
 }

@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../models/incident.dart';
 import '../../services/incident_service.dart';
 import 'incident_details.dart';
@@ -68,11 +69,15 @@ class _IncidentsMapState extends State<IncidentsMap> {
         setState(() {
           _currentPosition = position;
         });
-
-        _mapController.move(
-          LatLng(position.latitude, position.longitude),
-          _currentZoom,
-        );
+        // Only move the map if the controller is attached and widget is mounted
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _mapController.move(
+              LatLng(position.latitude, position.longitude),
+              _currentZoom,
+            );
+          }
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -100,11 +105,52 @@ class _IncidentsMapState extends State<IncidentsMap> {
       future: Provider.of<IncidentService>(context, listen: false).fetchIncidents(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          // Shimmer loading effect
+          return ListView.separated(
+            itemCount: 6,
+            separatorBuilder: (context, index) => const Divider(),
+            itemBuilder: (context, index) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Shimmer.fromColors(
+                baseColor: Colors.grey[300]!,
+                highlightColor: Colors.grey[100]!,
+                child: Container(
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          );
         } else if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                const SizedBox(height: 16),
+                Text('Failed to load incidents', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                Text('${snapshot.error}', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.red[400])),
+              ],
+            ),
+          );
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('No incidents found'));
+          // Improved empty state
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.map_outlined, size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text('No incidents found on the map', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600])),
+                const SizedBox(height: 8),
+                Text('Everything looks safe in your area!', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[500])),
+              ],
+            ),
+          );
         }
 
         final incidents = snapshot.data!;
@@ -122,10 +168,13 @@ class _IncidentsMapState extends State<IncidentsMap> {
                 height: 40,
                 child: GestureDetector(
                   onTap: () => setState(() => _selectedIncident = incident),
-                  child: Icon(
-                    Icons.location_on,
-                    color: _getPriorityColor(incident.priority),
-                    size: 40,
+                  child: Tooltip(
+                    message: 'Priority: ${incident.priority.name}\nTap to view details',
+                    child: Icon(
+                      Icons.location_on,
+                      color: _getPriorityColor(incident.priority),
+                      size: 40,
+                    ),
                   ),
                 ),
               ),
@@ -152,10 +201,13 @@ class _IncidentsMapState extends State<IncidentsMap> {
                     width: 2,
                   ),
                 ),
-                child: const Icon(
-                  Icons.my_location,
-                  color: Colors.white,
-                  size: 24,
+                child: const Tooltip(
+                  message: 'Your current location',
+                  child: Icon(
+                    Icons.my_location,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                 ),
               ),
             ),
@@ -173,7 +225,23 @@ class _IncidentsMapState extends State<IncidentsMap> {
           ),
           nonRotatedChildren: [
             if (_selectedIncident != null)
-              IncidentDetailsPopup(incident: _selectedIncident!),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0.2, 0),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                ),
+                child: IncidentDetailsPopup(
+                  key: ValueKey(_selectedIncident!.id),
+                  incident: _selectedIncident!,
+                ),
+              ),
           ],
           children: [
             TileLayer(
