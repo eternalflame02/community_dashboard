@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import '../../models/incident.dart';
 import '../../services/incident_service.dart';
 import 'incident_details.dart';
@@ -17,7 +18,6 @@ class IncidentsMap extends StatefulWidget {
 class _IncidentsMapState extends State<IncidentsMap> {
   final MapController _mapController = MapController();
   Position? _currentPosition;
-  final List<Marker> _markers = [];
   double _currentZoom = 15.0;
   Incident? _selectedIncident;
 
@@ -105,128 +105,86 @@ class _IncidentsMapState extends State<IncidentsMap> {
           return Center(child: Text('Error: ${snapshot.error}'));
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Center(child: Text('No incidents found'));
-        } else {
-          final incidents = snapshot.data!;
-          // Filter out resolved incidents from the map
-          final markers = incidents.where((incident) {
-            return incident.status != IncidentStatus.resolved &&
-                   incident.location['coordinates'] != null &&
-                   incident.location['coordinates'].length == 2;
-          }).map((incident) {
-            return Marker(
-              width: 40,
-              height: 40,
-              point: incident.latLng,
-              builder: (context) => GestureDetector(
-                onTap: () => setState(() => _selectedIncident = incident),
-                child: Icon(
-                  Icons.location_on,
-                  color: _getPriorityColor(incident.priority),
-                  size: 40,
-                ),
-              ),
-            );
-          }).toList();
+        }
 
-          // Reintroduced the current location indicator
-          if (_currentPosition != null) {
+        final incidents = snapshot.data!;
+        List<Marker> markers = [];
+
+        // Add incident markers
+        for (var incident in incidents) {
+          if (incident.status != IncidentStatus.resolved &&
+              incident.location['coordinates'] != null &&
+              incident.location['coordinates'].length == 2) {
             markers.add(
               Marker(
-                point: LatLng(
-                  _currentPosition!.latitude,
-                  _currentPosition!.longitude,
-                ),
-                builder: (context) => Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Theme.of(context).colorScheme.primary,
-                      width: 2,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.my_location,
-                    color: Colors.white,
-                    size: 24,
+                point: incident.latLng,
+                width: 40,
+                height: 40,
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedIncident = incident),
+                  child: Icon(
+                    Icons.location_on,
+                    color: _getPriorityColor(incident.priority),
+                    size: 40,
                   ),
                 ),
               ),
             );
           }
-
-          return FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              center: _currentPosition != null
-                  ? LatLng(
-                      _currentPosition!.latitude,
-                      _currentPosition!.longitude,
-                    )
-                  : LatLng(0, 0),
-              zoom: _currentPosition != null ? _currentZoom : 2,
-              maxZoom: 18.0, // Prevent zooming in too much
-              onTap: (_, __) => setState(() => _selectedIncident = null),
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.safety.community_dashboard',
-              ),
-              MarkerLayer(
-                markers: markers,
-              ),
-            ],
-          );
         }
-      },
-    );
-  }
-}
 
-class _CustomMarker extends StatelessWidget {
-  final Color color;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _CustomMarker({
-    required this.color,
-    required this.onTap,
-    this.isSelected = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        children: [
-          Icon(
-            Icons.location_on,
-            color: color,
-            size: 40,
-          ),
-          if (isSelected)
-            Container(
+        // Add current location marker
+        if (_currentPosition != null) {
+          markers.add(
+            Marker(
+              point: LatLng(
+                _currentPosition!.latitude,
+                _currentPosition!.longitude,
+              ),
               width: 40,
               height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white,
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 4,
-                    spreadRadius: 2,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 2,
                   ),
-                ],
+                ),
+                child: const Icon(
+                  Icons.my_location,
+                  color: Colors.white,
+                  size: 24,
+                ),
               ),
             ),
-        ],
-      ),
+          );
+        }
+
+        return FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            center: _currentPosition != null
+                ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+                : const LatLng(0, 0),
+            zoom: _currentPosition != null ? _currentZoom : 2,
+            onTap: (_, __) => setState(() => _selectedIncident = null),
+          ),
+          nonRotatedChildren: [
+            if (_selectedIncident != null)
+              IncidentDetailsPopup(incident: _selectedIncident!),
+          ],
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.safety.community_dashboard',
+              tileProvider: CancellableNetworkTileProvider(),
+            ),
+            MarkerLayer(markers: markers),
+          ],
+        );
+      },
     );
   }
 }

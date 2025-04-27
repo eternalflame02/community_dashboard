@@ -4,15 +4,15 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
-import 'package:mongo_dart/mongo_dart.dart' as mongo;
 import '../../services/incident_service.dart';
 import '../../models/incident.dart';
 import '../../services/auth_service.dart';
-import 'dart:convert'; // Added import for base64Encode
-import 'dart:io'; // Added import for File
-import 'package:flutter/foundation.dart'; // Added import for kIsWeb
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 class ReportIncidentScreen extends StatefulWidget {
   const ReportIncidentScreen({super.key});
@@ -26,7 +26,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _addressController = TextEditingController();
-  final _mapController = MapController();
+  late final MapController _mapController;
   final _imagePicker = ImagePicker();
   
   bool _isLoading = false;
@@ -46,6 +46,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
   @override
   void initState() {
     super.initState();
+    _mapController = MapController();
     Future.microtask(_getCurrentLocation);
   }
 
@@ -72,7 +73,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
         _selectedLocation = LatLng(position.latitude, position.longitude);
       });
 
-      if (_selectedLocation != null && _mapController != null) {
+      if (_selectedLocation != null) {
         _mapController.move(_selectedLocation!, 15);
       }
     } catch (e) {
@@ -120,12 +121,39 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
   }
 
   Future<List<String>> _uploadImages() async {
-    final List<String> base64Images = [];
+    final List<String> imageUrls = [];
     for (final image in _selectedImages) {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('http://localhost:3000/upload'),
+      );
+      
       final bytes = await image.readAsBytes();
-      base64Images.add(base64Encode(bytes));
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          bytes,
+          filename: path.basename(image.path),
+        ),
+      );
+
+      try {
+        final response = await request.send();
+        final responseBody = await response.stream.bytesToString();
+        debugPrint('Image upload response: $responseBody');
+        
+        if (response.statusCode == 200) {
+          final responseData = jsonDecode(responseBody);
+          imageUrls.add(responseData['url']);
+        } else {
+          throw Exception('Failed to upload image: ${response.statusCode} - $responseBody');
+        }
+      } catch (e) {
+        debugPrint('Error uploading image: $e');
+        rethrow;
+      }
     }
-    return base64Images;
+    return imageUrls;
   }
 
   Future<void> _submitReport() async {
@@ -318,27 +346,23 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
                             child: FlutterMap(
                               mapController: _mapController,
                               options: MapOptions(
-                                center: _selectedLocation ?? LatLng(0, 0),
-                                zoom: 15,
+                                center: _selectedLocation ?? LatLng(0, 0),  // Changed initialCenter to center
+                                zoom: 15,  // Changed initialZoom to zoom
                                 onTap: (tapPosition, point) {
                                   setState(() {
                                     _selectedLocation = point;
                                   });
                                 },
                               ),
-                              children: [
-                                TileLayer(
-                                  urlTemplate:
-                                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                  userAgentPackageName:
-                                      'com.safety.community_dashboard',
-                                ),
+                              nonRotatedChildren: [  // Added nonRotatedChildren for proper overlay rendering
                                 if (_selectedLocation != null)
                                   MarkerLayer(
                                     markers: [
                                       Marker(
                                         point: _selectedLocation!,
-                                        builder: (context) => const Icon(
+                                        width: 40,
+                                        height: 40,
+                                        child: const Icon(
                                           Icons.location_on,
                                           color: Colors.red,
                                           size: 40,
@@ -346,6 +370,13 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
                                       ),
                                     ],
                                   ),
+                              ],
+                              children: [
+                                TileLayer(
+                                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                  userAgentPackageName: 'com.safety.community_dashboard',
+                                  tileProvider: CancellableNetworkTileProvider(),
+                                ),
                               ],
                             ),
                           ),
