@@ -46,6 +46,8 @@ class ProfileScreen extends StatelessWidget {
                         color: Theme.of(context).colorScheme.onPrimary,
                         onPressed: () {
                           // TODO: Implement photo upload
+                          // You can use ImagePicker or similar package to allow users to select and upload a photo.
+                          // Example: Use ImagePicker.pickImage and upload to your backend or Firebase Storage.
                         },
                       ),
                     ),
@@ -173,6 +175,7 @@ class _SettingsTile extends StatelessWidget {
       trailing: trailing ?? const Icon(Icons.chevron_right),
       onTap: () {
         // TODO: Implement settings navigation
+        // You can use Navigator.push to navigate to a settings screen when this is triggered.
       },
     );
   }

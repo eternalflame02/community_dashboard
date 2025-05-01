@@ -193,7 +193,12 @@ class _ReportsListState extends State<ReportsList> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(18),
                             ),
-                            color: Colors.white.withOpacity(0.7),
+                            color: Color.fromARGB(
+                              (0.7 * 255).toInt(),
+                              Colors.white.red,
+                              Colors.white.green,
+                              Colors.white.blue,
+                            ),
                             shadowColor: Colors.black.withOpacity(0.12),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(18),
@@ -331,7 +336,7 @@ class _ReportsListState extends State<ReportsList> {
     return Chip(
       avatar: Icon(icon, size: 16, color: color),
       label: Text(status.name.toUpperCase()),
-      backgroundColor: color.withOpacity(0.1),
+      backgroundColor: color.withOpacity(0.9),
       labelStyle: TextStyle(color: color),
     );
   }

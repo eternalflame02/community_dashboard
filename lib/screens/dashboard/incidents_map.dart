@@ -19,7 +19,7 @@ class IncidentsMap extends StatefulWidget {
 class _IncidentsMapState extends State<IncidentsMap> {
   final MapController _mapController = MapController();
   Position? _currentPosition;
-  double _currentZoom = 15.0;
+  final double _currentZoom = 15.0;
   Incident? _selectedIncident;
 
   @override
@@ -139,18 +139,55 @@ class _IncidentsMapState extends State<IncidentsMap> {
             ),
           );
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          // Improved empty state
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.map_outlined, size: 64, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text('No incidents found on the map', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600])),
-                const SizedBox(height: 8),
-                Text('Everything looks safe in your area!', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[500])),
-              ],
+          // Show the map even if there are no incidents
+          List<Marker> markers = [];
+          if (_currentPosition != null) {
+            markers.add(
+              Marker(
+                point: LatLng(
+                  _currentPosition!.latitude,
+                  _currentPosition!.longitude,
+                ),
+                width: 40,
+                height: 40,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                  child: const Tooltip(
+                    message: 'Your current location',
+                    child: Icon(
+                      Icons.my_location,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+          return FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              center: _currentPosition != null
+                  ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+                  : const LatLng(0, 0),
+              zoom: _currentPosition != null ? _currentZoom : 2,
+              onTap: (_, __) => setState(() => _selectedIncident = null),
             ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.safety.community_dashboard',
+                tileProvider: CancellableNetworkTileProvider(),
+              ),
+              MarkerLayer(markers: markers),
+            ],
           );
         }
 
