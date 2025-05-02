@@ -51,7 +51,7 @@ class IncidentService extends ChangeNotifier {
 
   Stream<List<Incident>> getIncidents({IncidentStatus? status}) async* {
     try {
-      final response = await http.get(Uri.parse('http://localhost:3000/incidents'));
+      final response = await http.get(Uri.parse('http://192.168.79.64:3000/incidents'));
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         yield data.map((json) => Incident.fromJson(json)).toList();
@@ -72,7 +72,7 @@ class IncidentService extends ChangeNotifier {
   Future<List<Incident>> fetchIncidents({int page = 1, int limit = 10}) async {
     try {
       debugPrint('Fetching incidents from backend...');
-      final response = await http.get(Uri.parse('http://localhost:3000/incidents'));
+      final response = await http.get(Uri.parse('http://192.168.79.64:3000/incidents'));
       
       if (response.statusCode == 200) {
         List<dynamic> data = jsonDecode(response.body);
@@ -96,7 +96,7 @@ class IncidentService extends ChangeNotifier {
         reporterId = authService.currentUser?.id;
       }
       final response = await http.post(
-        Uri.parse('http://localhost:3000/incidents'),
+        Uri.parse('http://192.168.79.64:3000/incidents'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'title': incident.title,
@@ -126,7 +126,7 @@ class IncidentService extends ChangeNotifier {
   Future<void> updateIncidentStatus(String id, IncidentStatus status) async {
     try {
       final response = await http.patch(
-        Uri.parse('http://localhost:3000/incidents/$id'),
+        Uri.parse('http://192.168.79.64:3000/incidents/$id'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'status': status.name}),
       );
@@ -168,7 +168,7 @@ class IncidentService extends ChangeNotifier {
   // Fetch a single incident by its ID
   Future<Incident> fetchIncidentById(String id) async {
     try {
-      final response = await http.get(Uri.parse('http://localhost:3000/incidents/$id'));
+      final response = await http.get(Uri.parse('http://192.168.79.64:3000/incidents/$id'));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return Incident.fromJson(data);

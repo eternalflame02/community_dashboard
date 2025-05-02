@@ -138,7 +138,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
     for (final image in _selectedImages) {
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://localhost:3000/upload'),
+        Uri.parse('http://192.168.79.64:3000/upload'),
       );
       
       final bytes = await image.readAsBytes();
@@ -180,7 +180,9 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final userId = Provider.of<AuthService>(context, listen: false).currentUser?.id;
+      final authService = Provider.of<AuthService>(context, listen: false);
+      debugPrint('AuthService.currentUser: ${authService.currentUser}');
+      final userId = authService.currentUser?.id;
       if (userId == null || userId.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

@@ -89,7 +89,7 @@ class AuthService extends ChangeNotifier {
   Future<void> _syncUserWithBackend(firebase_auth.User firebaseUser) async {
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:3000/users/sync'),
+        Uri.parse('http://192.168.79.64:3000/users/sync'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'firebaseId': firebaseUser.uid,
@@ -108,7 +108,7 @@ class AuthService extends ChangeNotifier {
   Future<AppUser?> _fetchUserWithRole(firebase_auth.User firebaseUser) async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:3000/users/by-firebase-id/${firebaseUser.uid}'),
+        Uri.parse('http://192.168.79.64:3000/users/by-firebase-id/${firebaseUser.uid}'),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

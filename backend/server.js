@@ -186,8 +186,19 @@ app.post('/users/sync', async (req, res) => {
   try {
     const { firebaseId, email, displayName } = req.body;
     let user = await User.findOne({ firebaseId });
+    let finalDisplayName = displayName;
+    if (!finalDisplayName || finalDisplayName === 'null') {
+      if (email && typeof email === 'string' && email.includes('@')) {
+        finalDisplayName = email.split('@')[0];
+      } else {
+        finalDisplayName = 'user';
+      }
+    }
     if (!user) {
-      user = new User({ firebaseId, email, displayName, role: 'user' });
+      user = new User({ firebaseId, email, displayName: finalDisplayName, role: 'user' });
+      await user.save();
+    } else if (user.displayName !== finalDisplayName) {
+      user.displayName = finalDisplayName;
       await user.save();
     }
     res.json(user);

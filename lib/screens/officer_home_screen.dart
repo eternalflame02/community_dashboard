@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dashboard/incidents_map.dart';
 import 'dashboard/reports_list.dart';
+import '../services/auth_service.dart';
 
 class OfficerHomeScreen extends StatefulWidget {
   const OfficerHomeScreen({super.key});
@@ -20,6 +22,37 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Officer Dashboard'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign Out',
+            onPressed: () async {
+              final shouldLogout = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Sign Out'),
+                  content: const Text('Are you sure you want to sign out?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Sign Out'),
+                    ),
+                  ],
+                ),
+              );
+              if (shouldLogout == true) {
+                // Use Provider to sign out
+                if (context.mounted) {
+                  await Provider.of<AuthService>(context, listen: false).signOut();
+                }
+              }
+            },
+          ),
+        ],
       ),
       body: Row(
         children: [

@@ -15,11 +15,16 @@ class AppUser {
 
   factory AppUser.fromMap(Map<String, dynamic> map) {
     return AppUser(
-      id: map['id'] ?? '',
+      id: map['_id'] ?? map['id'] ?? '',
       email: map['email'] ?? '',
       displayName: map['displayName'],
       photoURL: map['photoURL'],
       role: map['role'] ?? 'user',
     );
+  }
+
+  @override
+  String toString() {
+    return 'AppUser{id: $id, email: $email, displayName: $displayName, photoURL: $photoURL, role: $role}';
   }
 }
