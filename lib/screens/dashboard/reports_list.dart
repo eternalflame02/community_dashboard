@@ -6,7 +6,8 @@ import '../../services/incident_service.dart';
 import 'incident_details.dart';  // Added import
 
 class ReportsList extends StatefulWidget {
-  const ReportsList({super.key});
+  final bool sortByPriority;
+  const ReportsList({super.key, this.sortByPriority = false});
 
   @override
   State<ReportsList> createState() => _ReportsListState();
@@ -56,7 +57,12 @@ class _ReportsListState extends State<ReportsList> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredIncidents = _incidents.where((incident) => incident.status != IncidentStatus.resolved).toList();
+    List<Incident> filteredIncidents = _incidents.where((incident) => incident.status != IncidentStatus.resolved).toList();
+    if (widget.sortByPriority) {
+      filteredIncidents.sort((a, b) => b.priority.index.compareTo(a.priority.index));
+    }
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Column(
       children: [
@@ -129,20 +135,25 @@ class _ReportsListState extends State<ReportsList> {
                           Container(
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Colors.grey[200], // Changed from gradient blue to neutral grey
+                              color: isDark ? theme.colorScheme.surfaceVariant : Colors.grey[200],
                             ),
                             padding: const EdgeInsets.all(18),
-                            child: Icon(Icons.inbox, size: 64, color: Colors.grey[500]), // Changed icon color to match neutral background
+                            child: Icon(Icons.inbox, size: 64, color: isDark ? Colors.grey[600] : Colors.grey[500]),
                           ),
                           const SizedBox(height: 16),
                           Text(
                             'No incidents to display',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[700], fontWeight: FontWeight.bold),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: isDark ? Colors.grey[200] : Colors.grey[700],
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'All clear! No reports at the moment.',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[500]),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: isDark ? Colors.grey[500] : Colors.grey[500],
+                            ),
                           ),
                         ],
                       ),
@@ -193,16 +204,20 @@ class _ReportsListState extends State<ReportsList> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(18),
                             ),
-                            color: Color.fromARGB(
-                              (0.7 * 255).toInt(),
-                              Colors.white.red,
-                              Colors.white.green,
-                              Colors.white.blue,
-                            ),
-                            shadowColor: Colors.black.withOpacity(0.12),
+                            color: isDark
+                                ? theme.colorScheme.surface.withOpacity(0.85)
+                                : Color.fromARGB(
+                                    (0.7 * 255).toInt(),
+                                    Colors.white.red,
+                                    Colors.white.green,
+                                    Colors.white.blue,
+                                  ),
+                            shadowColor: isDark
+                                ? Colors.black.withOpacity(0.4)
+                                : Colors.black.withOpacity(0.12),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(18),
-                              splashColor: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                              splashColor: theme.colorScheme.primary.withOpacity(0.08),
                               onTap: () {
                                 Navigator.push(
                                   context,
@@ -232,7 +247,7 @@ class _ReportsListState extends State<ReportsList> {
                                             width: double.infinity,
                                             fit: BoxFit.cover,
                                             errorBuilder: (context, error, stackTrace) => Container(
-                                              color: Colors.grey[200],
+                                              color: isDark ? theme.colorScheme.surfaceVariant : Colors.grey[200],
                                               child: const Center(child: Icon(Icons.broken_image)),
                                             ),
                                           ),
@@ -317,6 +332,8 @@ class _ReportsListState extends State<ReportsList> {
   }
 
   Widget _buildStatusChip(BuildContext context, IncidentStatus status) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     Color color;
     IconData icon;
     switch (status) {
@@ -336,19 +353,28 @@ class _ReportsListState extends State<ReportsList> {
     return Chip(
       avatar: Icon(icon, size: 16, color: color),
       label: Text(status.name.toUpperCase()),
-      backgroundColor: color.withOpacity(0.9),
-      labelStyle: TextStyle(color: color),
+      backgroundColor: isDark ? color.withOpacity(0.25) : color.withOpacity(0.9),
+      labelStyle: TextStyle(color: isDark ? color : color),
     );
   }
 
   Widget _buildCategoryChip(BuildContext context, String category) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Chip(
       label: Text(category),
-      backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+      backgroundColor: isDark
+          ? theme.colorScheme.primary.withOpacity(0.18)
+          : theme.colorScheme.primary.withOpacity(0.1),
+      labelStyle: TextStyle(
+        color: isDark ? theme.colorScheme.primary : theme.colorScheme.primary,
+      ),
     );
   }
 
   Widget _buildPriorityChip(BuildContext context, IncidentPriority priority) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     Color color;
     switch (priority) {
       case IncidentPriority.high:
@@ -363,8 +389,8 @@ class _ReportsListState extends State<ReportsList> {
     }
     return Chip(
       label: Text(priority.name.toUpperCase()),
-      backgroundColor: color.withOpacity(0.1),
-      labelStyle: TextStyle(color: color),
+      backgroundColor: isDark ? color.withOpacity(0.18) : color.withOpacity(0.1),
+      labelStyle: TextStyle(color: isDark ? color : color),
     );
   }
 

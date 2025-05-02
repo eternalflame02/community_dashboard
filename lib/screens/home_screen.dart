@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart';
 import '../services/auth_service.dart';
 import 'dashboard/incidents_map.dart';
 import 'dashboard/reports_list.dart';
@@ -57,6 +58,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDesktop = defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.linux;
     return Scaffold(
       backgroundColor: theme.colorScheme.background,
       appBar: AppBar(
@@ -74,17 +78,49 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
         ),
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 400),
-        transitionBuilder: (child, animation) => FadeTransition(
-          opacity: animation,
-          child: child,
-        ),
-        child: Padding(
-          key: ValueKey<int>(_selectedIndex),
-          padding: const EdgeInsets.all(8.0),
-          child: _pages[_selectedIndex],
-        ),
+      body: Row(
+        children: [
+          if (isDesktop)
+            NavigationRail(
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: (index) {
+                setState(() {
+                  _selectedIndex = index;
+                });
+              },
+              labelType: NavigationRailLabelType.all,
+              destinations: const [
+                NavigationRailDestination(
+                  icon: Icon(Icons.map),
+                  label: Text('Map'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.list),
+                  label: Text('Reports'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.person),
+                  label: Text('Profile'),
+                ),
+              ],
+            ),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 400),
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: child,
+              ),
+              child: Padding(
+                key: ValueKey<int>(_selectedIndex),
+                padding: isDesktop
+                    ? const EdgeInsets.symmetric(horizontal: 32, vertical: 24)
+                    : const EdgeInsets.all(8.0),
+                child: _pages[_selectedIndex],
+              ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: Tooltip(
         message: 'Report a new incident',
@@ -104,36 +140,38 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: NavigationBar(
-            height: 60,
-            backgroundColor: theme.colorScheme.surface.withOpacity(0.95),
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: (index) {
-              setState(() {
-                _selectedIndex = index;
-              });
-            },
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.map),
-                label: 'Map',
+      bottomNavigationBar: isDesktop
+          ? null
+          : Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: NavigationBar(
+                  height: 60,
+                  backgroundColor: theme.colorScheme.surface.withOpacity(0.95),
+                  selectedIndex: _selectedIndex,
+                  onDestinationSelected: (index) {
+                    setState(() {
+                      _selectedIndex = index;
+                    });
+                  },
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.map),
+                      label: 'Map',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.list),
+                      label: 'Reports',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.person),
+                      label: 'Profile',
+                    ),
+                  ],
+                ),
               ),
-              NavigationDestination(
-                icon: Icon(Icons.list),
-                label: 'Reports',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.person),
-                label: 'Profile',
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

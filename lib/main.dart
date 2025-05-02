@@ -6,6 +6,7 @@ import 'services/incident_service.dart';
 import 'services/theme_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/officer_home_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -71,9 +72,13 @@ class MyApp extends StatelessWidget {
             themeMode: themeProvider.themeMode,
             home: Consumer<AuthService>(
               builder: (context, authService, _) {
-                return authService.currentUser != null
-                    ? const HomeScreen()
-                    : const LoginScreen();
+                if (authService.currentUser == null) {
+                  return const LoginScreen();
+                }
+                if (authService.currentUser!.role == 'officer') {
+                  return const OfficerHomeScreen();
+                }
+                return const HomeScreen();
               },
             ),
           );

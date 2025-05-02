@@ -2,18 +2,19 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../models/user.dart';
 
 class AuthUser {
   final String id;
   final String email;
   final String? displayName;
-  final String? photoURL;  // Added photoURL
+  final String? photoURL;
 
   AuthUser({
     required this.id,
     required this.email,
     this.displayName,
-    this.photoURL,  // Added photoURL parameter
+    this.photoURL,
   });
 
   factory AuthUser.fromFirebaseUser(firebase_auth.User user) {
@@ -21,37 +22,40 @@ class AuthUser {
       id: user.uid,
       email: user.email!,
       displayName: user.displayName,
-      photoURL: user.photoURL,  // Added photoURL
+      photoURL: user.photoURL,
     );
   }
 }
 
 class AuthService extends ChangeNotifier {
   final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
-  AuthUser? _currentUser;
+  AppUser? _currentUser;
 
-  AuthUser? get currentUser => _currentUser;
+  AppUser? get currentUser => _currentUser;
 
   AuthService() {
-    _auth.authStateChanges().listen((user) {
+    _auth.authStateChanges().listen((user) async {
       if (user != null) {
-        _currentUser = AuthUser.fromFirebaseUser(user);
+        _currentUser = await _fetchUserWithRole(user);
+        debugPrint('Fetched user: id=${_currentUser?.id}, email=${_currentUser?.email}, role=${_currentUser?.role}');
       } else {
         _currentUser = null;
+        debugPrint('No user logged in');
       }
       notifyListeners();
     });
   }
 
-  Future<void> signInWithEmail(String email, String password) async {  // Changed from signInWithEmailAndPassword
+  Future<void> signInWithEmail(String email, String password) async {
     try {
       final userCredential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
       if (userCredential.user != null) {
         await _syncUserWithBackend(userCredential.user!);
+        _currentUser = await _fetchUserWithRole(userCredential.user!);
+        notifyListeners();
       }
     } catch (e) {
       debugPrint('Error signing in: $e');
@@ -59,15 +63,16 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<void> registerWithEmail(String email, String password) async {  // Changed from signUp
+  Future<void> registerWithEmail(String email, String password) async {
     try {
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      
       if (userCredential.user != null) {
         await _syncUserWithBackend(userCredential.user!);
+        _currentUser = await _fetchUserWithRole(userCredential.user!);
+        notifyListeners();
       }
     } catch (e) {
       debugPrint('Error signing up: $e');
@@ -83,23 +88,42 @@ class AuthService extends ChangeNotifier {
 
   Future<void> _syncUserWithBackend(firebase_auth.User firebaseUser) async {
     try {
-      final user = AuthUser.fromFirebaseUser(firebaseUser);
       final response = await http.post(
         Uri.parse('http://localhost:3000/users/sync'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'firebaseId': user.id,
-          'email': user.email,
-          'displayName': user.displayName,
+          'firebaseId': firebaseUser.uid,
+          'email': firebaseUser.email,
+          'displayName': firebaseUser.displayName,
         }),
       );
-
       if (response.statusCode != 200) {
         throw Exception('Failed to sync user with backend');
       }
     } catch (e) {
       debugPrint('Error syncing user with backend: $e');
-      // Don't rethrow as this is a background sync operation
     }
+  }
+
+  Future<AppUser?> _fetchUserWithRole(firebase_auth.User firebaseUser) async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://localhost:3000/users/by-firebase-id/${firebaseUser.uid}'),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return AppUser.fromMap(data);
+      }
+    } catch (e) {
+      debugPrint('Error fetching user with role: $e');
+    }
+    // fallback to default user if backend fails
+    return AppUser(
+      id: firebaseUser.uid,
+      email: firebaseUser.email ?? '',
+      displayName: firebaseUser.displayName,
+      photoURL: firebaseUser.photoURL,
+      role: 'user',
+    );
   }
 }

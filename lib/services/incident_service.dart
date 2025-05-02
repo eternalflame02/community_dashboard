@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import '../models/incident.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import 'auth_service.dart';
 
 class IncidentService extends ChangeNotifier {
   String _searchQuery = '';
@@ -84,8 +87,14 @@ class IncidentService extends ChangeNotifier {
     }
   }
 
-  Future<void> createIncident(Incident incident) async {
+  Future<void> createIncident(Incident incident, {BuildContext? context}) async {
     try {
+      String? reporterId = incident.reporterId;
+      // If reporterId is not set, try to get it from AuthService
+      if ((reporterId == null || reporterId.isEmpty) && context != null) {
+        final authService = Provider.of<AuthService>(context, listen: false);
+        reporterId = authService.currentUser?.id;
+      }
       final response = await http.post(
         Uri.parse('http://localhost:3000/incidents'),
         headers: {'Content-Type': 'application/json'},
@@ -96,8 +105,8 @@ class IncidentService extends ChangeNotifier {
           'address': incident.address,
           'category': incident.category,
           'priority': incident.priority.index,
-          'status': incident.status.name.toLowerCase(), // Convert enum to lowercase string
-          'reporterId': incident.reporterId,
+          'status': incident.status.name.toLowerCase(),
+          'reporterId': reporterId,
           'images': incident.images,
           'createdAt': incident.createdAt.toIso8601String(),
           'resolvedAt': incident.resolvedAt?.toIso8601String(),
@@ -105,11 +114,11 @@ class IncidentService extends ChangeNotifier {
       );
 
       if (response.statusCode != 201) {
-        debugPrint('Error response from server: ${response.body}');
-        throw Exception('Failed to create incident: ${response.body}');
+        debugPrint('Error response from server: \\${response.body}');
+        throw Exception('Failed to create incident: \\${response.body}');
       }
     } catch (e) {
-      debugPrint('Error creating incident: $e');
+      debugPrint('Error creating incident: \\${e}');
       throw Exception('An unexpected error occurred while creating the incident.');
     }
   }

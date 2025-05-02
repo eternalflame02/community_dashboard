@@ -180,7 +180,17 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
     setState(() => _isLoading = true);
 
     try {
-      debugPrint('Starting report submission...');
+      final userId = Provider.of<AuthService>(context, listen: false).currentUser?.id;
+      if (userId == null || userId.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('You must be logged in to submit a report.')),
+          );
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
+      debugPrint('Reporter ID used for incident: ' + userId);
       List<String> imageUrls = [];
       
       if (_selectedImages.isNotEmpty) {
@@ -210,15 +220,15 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
         category: _category,
         priority: _priority,
         status: IncidentStatus.open,
-        reporterId: Provider.of<AuthService>(context, listen: false).currentUser?.id ?? 'anonymous',
+        reporterId: userId,
         images: imageUrls,
         createdAt: DateTime.now(),
         resolvedAt: null,
       );
 
       debugPrint('Saving incident to MongoDB...');
-      final service = Provider.of<IncidentService>(context, listen: false);
-      await service.createIncident(incident);
+      await Provider.of<IncidentService>(context, listen: false)
+          .createIncident(incident, context: context);
       debugPrint('Incident saved successfully!');
 
       if (mounted) {

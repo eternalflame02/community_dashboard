@@ -38,8 +38,6 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
-      tls: true,
-      tlsAllowInvalidCertificates: false
     });
     console.log(`✅ MongoDB Atlas Connected: ${conn.connection.host}`);
 
@@ -123,6 +121,15 @@ const incidentSchema = new mongoose.Schema({
 
 const Incident = mongoose.model('Incident', incidentSchema);
 
+// User schema and model
+const userSchema = new mongoose.Schema({
+  firebaseId: { type: String, required: true, unique: true },
+  email: { type: String, required: true },
+  displayName: String,
+  role: { type: String, enum: ['user', 'officer'], default: 'user' },
+});
+const User = mongoose.model('User', userSchema);
+
 // Routes
 app.get('/health', (req, res) => {
   const status = {
@@ -171,6 +178,47 @@ app.patch('/incidents/:id', async (req, res) => {
   } catch (err) {
     console.error('Error updating incident:', err);
     res.status(500).json({ error: 'Failed to update incident', details: err.message });
+  }
+});
+
+// Sync user from frontend (create if not exists)
+app.post('/users/sync', async (req, res) => {
+  try {
+    const { firebaseId, email, displayName } = req.body;
+    let user = await User.findOne({ firebaseId });
+    if (!user) {
+      user = new User({ firebaseId, email, displayName, role: 'user' });
+      await user.save();
+    }
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to sync user', details: err.message });
+  }
+});
+
+// Get user by firebaseId
+app.get('/users/by-firebase-id/:firebaseId', async (req, res) => {
+  try {
+    const user = await User.findOne({ firebaseId: req.params.firebaseId });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch user', details: err.message });
+  }
+});
+
+// Promote user to officer (admin/manual)
+app.patch('/users/:id/promote', async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: { role: 'officer' } },
+      { new: true }
+    );
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to promote user', details: err.message });
   }
 });
 
