@@ -25,6 +25,9 @@ class Incident {
   final List<String> images;
   final DateTime createdAt;
   final DateTime? resolvedAt;
+  final String? inProgressBy;
+  final DateTime? inProgressAt;
+  final String? resolvedBy;
 
   Incident({
     required this.id,
@@ -39,6 +42,9 @@ class Incident {
     required this.images,
     required this.createdAt,
     this.resolvedAt,
+    this.inProgressBy,
+    this.inProgressAt,
+    this.resolvedBy,
   });
 
   // Getter for LatLng to use with flutter_map
@@ -61,6 +67,9 @@ class Incident {
       images: (json['images'] as List<dynamic>).cast<String>(),
       createdAt: DateTime.parse(json['createdAt'] as String),
       resolvedAt: json['resolvedAt'] != null ? DateTime.parse(json['resolvedAt'] as String) : null,
+      inProgressBy: json['inProgressBy'],
+      inProgressAt: json['inProgressAt'] != null ? DateTime.parse(json['inProgressAt']) : null,
+      resolvedBy: json['resolvedBy'],
     );
   }
 

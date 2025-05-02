@@ -10,6 +10,7 @@ import 'package:path/path.dart' as path;
 import '../../services/incident_service.dart';
 import '../../models/incident.dart';
 import '../../services/auth_service.dart';
+import '../../config/api.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -138,7 +139,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
     for (final image in _selectedImages) {
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://192.168.79.64:3000/upload'),
+        Uri.parse('${ApiConfig.baseUrl}/upload'),
       );
       
       final bytes = await image.readAsBytes();
@@ -183,6 +184,26 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
       final authService = Provider.of<AuthService>(context, listen: false);
       debugPrint('AuthService.currentUser: ${authService.currentUser}');
       final userId = authService.currentUser?.id;
+      final displayName = authService.currentUser?.displayName;
+      final email = authService.currentUser?.email;
+
+      // Always sync user to backend before submitting incident
+      if (userId != null && email != null) {
+        try {
+          await http.post(
+            Uri.parse('${ApiConfig.baseUrl}/users/sync'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'firebaseId': userId,
+              'displayName': displayName,
+              'email': email,
+            }),
+          );
+        } catch (e) {
+          debugPrint('User sync failed: ${e}');
+        }
+      }
+
       if (userId == null || userId.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

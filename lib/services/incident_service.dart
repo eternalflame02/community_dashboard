@@ -8,6 +8,7 @@ import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
+import '../config/api.dart';
 
 class IncidentService extends ChangeNotifier {
   String _searchQuery = '';
@@ -51,7 +52,7 @@ class IncidentService extends ChangeNotifier {
 
   Stream<List<Incident>> getIncidents({IncidentStatus? status}) async* {
     try {
-      final response = await http.get(Uri.parse('http://192.168.79.64:3000/incidents'));
+      final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/incidents'));
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         yield data.map((json) => Incident.fromJson(json)).toList();
@@ -72,7 +73,7 @@ class IncidentService extends ChangeNotifier {
   Future<List<Incident>> fetchIncidents({int page = 1, int limit = 10}) async {
     try {
       debugPrint('Fetching incidents from backend...');
-      final response = await http.get(Uri.parse('http://192.168.79.64:3000/incidents'));
+      final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/incidents'));
       
       if (response.statusCode == 200) {
         List<dynamic> data = jsonDecode(response.body);
@@ -96,7 +97,7 @@ class IncidentService extends ChangeNotifier {
         reporterId = authService.currentUser?.id;
       }
       final response = await http.post(
-        Uri.parse('http://192.168.79.64:3000/incidents'),
+        Uri.parse('${ApiConfig.baseUrl}/incidents'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'title': incident.title,
@@ -123,12 +124,24 @@ class IncidentService extends ChangeNotifier {
     }
   }
 
-  Future<void> updateIncidentStatus(String id, IncidentStatus status) async {
+  Future<void> updateIncidentStatus(String id, IncidentStatus status, {BuildContext? context}) async {
     try {
+      String? userId;
+      String? updatedBy;
+      if (context != null) {
+        final authService = Provider.of<AuthService>(context, listen: false);
+        userId = authService.currentUser?.id;
+        updatedBy = authService.currentUser?.displayName ?? authService.currentUser?.email;
+      }
+      final body = {
+        'status': status.name,
+        if (userId != null) 'userId': userId,
+        if (updatedBy != null) 'updatedBy': updatedBy,
+      };
       final response = await http.patch(
-        Uri.parse('http://192.168.79.64:3000/incidents/$id'),
+        Uri.parse('${ApiConfig.baseUrl}/incidents/$id'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'status': status.name}),
+        body: jsonEncode(body),
       );
       if (response.statusCode != 200) {
         throw Exception('Failed to update incident status');
@@ -136,6 +149,27 @@ class IncidentService extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error updating incident status: $e');
       throw Exception('An unexpected error occurred while updating the incident status.');
+    }
+  }
+
+  // Update incident fields (description, address, location)
+  Future<void> updateIncidentFields(
+    String id, {
+    String? description,
+    String? address,
+    Map<String, dynamic>? location,
+  }) async {
+    final Map<String, dynamic> body = {};
+    if (description != null) body['description'] = description;
+    if (address != null) body['address'] = address;
+    if (location != null) body['location'] = location;
+    final response = await http.patch(
+      Uri.parse('${ApiConfig.baseUrl}/incidents/$id'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update incident: ${response.body}');
     }
   }
 
@@ -168,7 +202,7 @@ class IncidentService extends ChangeNotifier {
   // Fetch a single incident by its ID
   Future<Incident> fetchIncidentById(String id) async {
     try {
-      final response = await http.get(Uri.parse('http://192.168.79.64:3000/incidents/$id'));
+      final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/incidents/$id'));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return Incident.fromJson(data);

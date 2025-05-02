@@ -116,7 +116,11 @@ const incidentSchema = new mongoose.Schema({
   reporterId: { type: String, required: true },
   images: [String],
   createdAt: { type: Date, default: Date.now },
-  resolvedAt: Date
+  resolvedAt: Date,
+  inProgressBy: { type: String }, // userId or name
+  inProgressAt: { type: Date },
+  resolvedBy: { type: String },
+  resolvedAt: { type: Date }
 }, { timestamps: true });
 
 const Incident = mongoose.model('Incident', incidentSchema);
@@ -151,6 +155,19 @@ app.get('/incidents', async (req, res) => {
   }
 });
 
+// Get a single incident by ID
+app.get('/incidents/:id', async (req, res) => {
+  try {
+    const incident = await Incident.findById(req.params.id);
+    if (!incident) {
+      return res.status(404).json({ error: 'Incident not found' });
+    }
+    res.json(incident);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch incident', details: err.message });
+  }
+});
+
 // Create new incident
 app.post('/incidents', async (req, res) => {
   try {
@@ -166,9 +183,19 @@ app.post('/incidents', async (req, res) => {
 // Update incident status
 app.patch('/incidents/:id', async (req, res) => {
   try {
+    const update = { $set: req.body };
+    // Track status changes
+    if (req.body.status === 'inProgress') {
+      update.$set.inProgressBy = req.body.userId || req.body.updatedBy || null;
+      update.$set.inProgressAt = new Date();
+    }
+    if (req.body.status === 'resolved') {
+      update.$set.resolvedBy = req.body.userId || req.body.updatedBy || null;
+      update.$set.resolvedAt = new Date();
+    }
     const incident = await Incident.findByIdAndUpdate(
       req.params.id,
-      { $set: req.body },
+      update,
       { new: true }
     );
     if (!incident) {

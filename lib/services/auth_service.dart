@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/user.dart';
+import '../config/api.dart';
 
 class AuthUser {
   final String id;
@@ -89,7 +90,7 @@ class AuthService extends ChangeNotifier {
   Future<void> _syncUserWithBackend(firebase_auth.User firebaseUser) async {
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.79.64:3000/users/sync'),
+        Uri.parse('${ApiConfig.baseUrl}/users/sync'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'firebaseId': firebaseUser.uid,
@@ -108,7 +109,7 @@ class AuthService extends ChangeNotifier {
   Future<AppUser?> _fetchUserWithRole(firebase_auth.User firebaseUser) async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.79.64:3000/users/by-firebase-id/${firebaseUser.uid}'),
+        Uri.parse('${ApiConfig.baseUrl}/users/by-firebase-id/${firebaseUser.uid}'),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

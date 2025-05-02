@@ -5,7 +5,12 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import '../../models/incident.dart';
 import '../../services/incident_service.dart';
+import '../../services/auth_service.dart'; // Ensure AuthService is imported
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import '../../config/api.dart';
+import 'dart:convert';
+import 'edit_incident_screen.dart'; // Import the EditIncidentScreen widget
 
 class IncidentDetailsPopup extends StatelessWidget {
   final Incident incident;
@@ -117,12 +122,16 @@ class _IncidentDetailsState extends State<IncidentDetails> {
   bool _canEdit = false;
   Timer? _refreshTimer;
   late Incident _incident;
+  String? _reporterName;
+  String? _inProgressName;
+  String? _resolvedName;
 
   @override
   void initState() {
     super.initState();
     _incident = widget.incident;
     _checkEditPermission();
+    _fetchUserNames();
   }
 
   @override
@@ -132,11 +141,43 @@ class _IncidentDetailsState extends State<IncidentDetails> {
   }
 
   Future<void> _checkEditPermission() async {
-    // Implement your logic to check if the user can edit the incident
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUserId = authService.currentUser?.id;
     setState(() {
-      _canEdit = true; // or false based on your logic
+      _canEdit = (_incident.reporterId == currentUserId);
       _isLoading = false;
     });
+  }
+
+  Future<void> _fetchUserNames() async {
+    Future<String?> fetchName(String? userId) async {
+      if (userId == null || userId.isEmpty) return null;
+      try {
+        final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/users/by-firebase-id/$userId'));
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          // Prefer displayName, then email, then fallback to 'Unknown User'
+          return (data['displayName'] != null && data['displayName'].toString().trim().isNotEmpty)
+              ? data['displayName']
+              : (data['email'] != null && data['email'].toString().trim().isNotEmpty)
+                  ? data['email']
+                  : 'Unknown User';
+        }
+      } catch (_) {}
+      return 'Unknown User';
+    }
+    final names = await Future.wait([
+      fetchName(_incident.reporterId),
+      fetchName(_incident.inProgressBy),
+      fetchName(_incident.resolvedBy),
+    ]);
+    if (mounted) {
+      setState(() {
+        _reporterName = names[0];
+        _inProgressName = names[1];
+        _resolvedName = names[2];
+      });
+    }
   }
 
   Future<void> _refreshIncident() async {
@@ -201,7 +242,7 @@ class _IncidentDetailsState extends State<IncidentDetails> {
     setState(() => _isLoading = true);
     try {
       await Provider.of<IncidentService>(context, listen: false)
-          .updateIncidentStatus(_incident.id, status);
+          .updateIncidentStatus(_incident.id, status, context: context);
       final updatedIncident = await Provider.of<IncidentService>(context, listen: false)
           .fetchIncidentById(_incident.id);
       if (mounted) {
@@ -212,6 +253,7 @@ class _IncidentDetailsState extends State<IncidentDetails> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Status updated to \\${status.name}')),
         );
+        Navigator.pop(context, true); // Notify parent to refresh
       }
     } catch (e) {
       if (mounted) {
@@ -223,14 +265,22 @@ class _IncidentDetailsState extends State<IncidentDetails> {
     }
   }
 
-  void _editIncident() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit incident not implemented.')),
+  void _editIncident() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditIncidentScreen(incident: _incident),
+      ),
     );
+    if (result == true) {
+      _refreshIncident();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final isOfficer = authService.currentUser?.role == 'officer';
     return Scaffold(
       appBar: AppBar(
         title: const Text('Incident Details'),
@@ -400,23 +450,23 @@ class _IncidentDetailsState extends State<IncidentDetails> {
                                   _buildTimelineItem(
                                     'Reported',
                                     _incident.createdAt,
-                                    'N/A',
+                                    _reporterName ?? _incident.reporterId ?? 'N/A',
                                     Icons.flag,
                                     Colors.blue,
                                   ),
-                                  if (_incident.status != IncidentStatus.open)
+                                  if (_incident.inProgressAt != null)
                                     _buildTimelineItem(
                                       'In Progress',
-                                      _incident.createdAt,
-                                      'N/A',
+                                      _incident.inProgressAt!,
+                                      _inProgressName ?? _incident.inProgressBy ?? 'N/A',
                                       Icons.engineering,
                                       Colors.orange,
                                     ),
-                                  if (_incident.status == IncidentStatus.resolved)
+                                  if (_incident.resolvedAt != null)
                                     _buildTimelineItem(
                                       'Resolved',
-                                      _incident.resolvedAt ?? _incident.createdAt,
-                                      'N/A',
+                                      _incident.resolvedAt!,
+                                      _resolvedName ?? _incident.resolvedBy ?? 'N/A',
                                       Icons.check_circle,
                                       Colors.green,
                                     ),
@@ -431,7 +481,30 @@ class _IncidentDetailsState extends State<IncidentDetails> {
                 ),
               ),
             ),
-      bottomNavigationBar: null,
+      bottomNavigationBar: isOfficer && !_isLoading && _incident.status != IncidentStatus.resolved
+          ? Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  if (_incident.status != IncidentStatus.inProgress)
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.engineering),
+                      label: const Text('Mark In Progress'),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                      onPressed: () => _updateStatus(IncidentStatus.inProgress),
+                    ),
+                  if (_incident.status != IncidentStatus.resolved)
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.check_circle),
+                      label: const Text('Mark Resolved'),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                      onPressed: () => _updateStatus(IncidentStatus.resolved),
+                    ),
+                ],
+              ),
+            )
+          : null,
     );
   }
 
@@ -606,6 +679,6 @@ class _IncidentDetailsState extends State<IncidentDetails> {
   }
 
   String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+    return '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }

@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:flutter/foundation.dart';
 import '../../models/incident.dart';
 import '../../services/incident_service.dart';
-import 'incident_details.dart';  // Added import
+import '../../services/auth_service.dart'; // Added import
+import 'incident_details.dart';
+//import 'report_incident.dart'; // Import the ReportIncidentScreen class
+import 'edit_incident_screen.dart'; // Import the EditIncidentScreen class
 
 class ReportsList extends StatefulWidget {
   final bool sortByPriority;
   const ReportsList({super.key, this.sortByPriority = false});
 
   @override
-  State<ReportsList> createState() => _ReportsListState();
+  State<ReportsList> createState() => ReportsListState();
 }
 
-class _ReportsListState extends State<ReportsList> {
+class ReportsListState extends State<ReportsList> {
   final ScrollController _scrollController = ScrollController();
   final List<Incident> _incidents = [];
   bool _isLoading = false;
@@ -55,279 +59,169 @@ class _ReportsListState extends State<ReportsList> {
     }
   }
 
+  // Add a public refresh method
+  void refresh() {
+    setState(() {
+      _incidents.clear();
+      _currentPage = 1;
+    });
+    _fetchMoreIncidents();
+  }
+
   @override
   Widget build(BuildContext context) {
-    List<Incident> filteredIncidents = _incidents.where((incident) => incident.status != IncidentStatus.resolved).toList();
-    if (widget.sortByPriority) {
-      filteredIncidents.sort((a, b) => b.priority.index.compareTo(a.priority.index));
-    }
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final isOfficer = authService.currentUser?.role == 'officer';
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDesktop = defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.linux;
 
-    return Column(
-      children: [
-        ExpansionPanelList(
-          expansionCallback: (int index, bool isExpanded) {
-            setState(() {
-              _showCompleted = !_showCompleted;
-            });
-          },
-          children: [
-            ExpansionPanel(
-              headerBuilder: (BuildContext context, bool isExpanded) {
-                return ListTile(
-                  title: const Text('Completed Reports'),
-                );
-              },
-              body: Column(
-                children: _incidents
-                    .where((incident) => incident.status == IncidentStatus.resolved)
-                    .map((incident) => ListTile(
-                          title: Text(incident.title),
-                          subtitle: Text(incident.description),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => IncidentDetails(incident: incident),
-                              ),
-                            );
-                          },
-                        ))
-                    .toList(),
+    return Scaffold(
+      body: Column(
+        children: [
+          ExpansionPanelList(
+            expansionCallback: (int index, bool isExpanded) {
+              setState(() {
+                _showCompleted = !_showCompleted;
+              });
+            },
+            children: [
+              ExpansionPanel(
+                headerBuilder: (BuildContext context, bool isExpanded) {
+                  return ListTile(
+                    title: const Text('Completed Reports'),
+                  );
+                },
+                body: Column(
+                  children: _incidents
+                      .where((incident) => incident.status == IncidentStatus.resolved)
+                      .map((incident) => ListTile(
+                            title: Text(incident.title),
+                            subtitle: Text(incident.description),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => IncidentDetails(incident: incident),
+                                ),
+                              );
+                            },
+                          ))
+                      .toList(),
+                ),
+                isExpanded: _showCompleted,
               ),
-              isExpanded: _showCompleted,
-            ),
-          ],
-        ),
-        Expanded(
-          child: _isLoading && _incidents.isEmpty
-              ? ListView.separated(
-                  itemCount: 6,
-                  separatorBuilder: (context, index) => const Divider(),
-                  itemBuilder: (context, index) => Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Shimmer.fromColors(
-                      baseColor: Colors.grey[300]!,
-                      highlightColor: Colors.grey[100]!,
-                      child: Container(
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(18),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
-                              blurRadius: 16,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
+            ],
+          ),
+          Expanded(
+            child: _isLoading && _incidents.isEmpty
+                ? ListView.separated(
+                    itemCount: 6,
+                    separatorBuilder: (context, index) => const Divider(),
+                    itemBuilder: (context, index) => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Shimmer.fromColors(
+                        baseColor: Colors.grey[300]!,
+                        highlightColor: Colors.grey[100]!,
+                        child: Container(
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(18),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.08),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                )
-              : filteredIncidents.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: isDark ? theme.colorScheme.surfaceVariant : Colors.grey[200],
+                  )
+                : _incidents.where((incident) => incident.status != IncidentStatus.resolved).toList().isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: theme.brightness == Brightness.dark ? theme.colorScheme.surfaceVariant : Colors.grey[200],
+                              ),
+                              padding: const EdgeInsets.all(18),
+                              child: Icon(Icons.inbox, size: 64, color: theme.brightness == Brightness.dark ? Colors.grey[600] : Colors.grey[500]),
                             ),
-                            padding: const EdgeInsets.all(18),
-                            child: Icon(Icons.inbox, size: 64, color: isDark ? Colors.grey[600] : Colors.grey[500]),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No incidents to display',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: isDark ? Colors.grey[200] : Colors.grey[700],
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'All clear! No reports at the moment.',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: isDark ? Colors.grey[500] : Colors.grey[500],
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.separated(
-                      controller: _scrollController,
-                      itemCount: filteredIncidents.length + (_isLoading ? 1 : 0),
-                      separatorBuilder: (context, index) => const Divider(),
-                      itemBuilder: (context, index) {
-                        if (index == filteredIncidents.length) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            child: Shimmer.fromColors(
-                              baseColor: Colors.grey[300]!,
-                              highlightColor: Colors.grey[100]!,
-                              child: Container(
-                                height: 120,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(18),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.08),
-                                      blurRadius: 16,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
-                                ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No incidents to display',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: theme.brightness == Brightness.dark ? Colors.grey[200] : Colors.grey[700],
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'All clear! No reports at the moment.',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.brightness == Brightness.dark ? Colors.grey[500] : Colors.grey[500],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          final crossAxisCount = isDesktop
+                              ? (constraints.maxWidth ~/ 350).clamp(2, 5)
+                              : 1;
+                          final incidents = _incidents.where((incident) => incident.status != IncidentStatus.resolved).toList();
+                          return GridView.builder(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // less padding
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: crossAxisCount,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                              childAspectRatio: isDesktop ? 0.85 : 1.0, // make tiles taller
+                            ),
+                            itemCount: incidents.length,
+                            itemBuilder: (context, index) {
+                              final incident = incidents[index];
+                              return _ReportTile(
+                                incident: incident,
+                                isOfficer: isOfficer,
+                                onTap: () async {
+                                  final result = await Navigator.push(
+                                    context,
+                                    PageRouteBuilder(
+                                      pageBuilder: (context, animation, secondaryAnimation) => IncidentDetails(incident: incident),
+                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                        return FadeTransition(
+                                          opacity: animation,
+                                          child: child,
+                                        );
+                                      },
+                                    ),
+                                  );
+                                  if (result == true) {
+                                    setState(() {
+                                      _incidents.clear();
+                                      _currentPage = 1;
+                                    });
+                                    _fetchMoreIncidents();
+                                  }
+                                },
+                              );
+                            },
                           );
-                        }
-                        final incident = filteredIncidents[index];
-                        return TweenAnimationBuilder<double>(
-                          tween: Tween<double>(begin: 0, end: 1),
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeIn,
-                          builder: (context, value, child) => Opacity(
-                            opacity: value,
-                            child: Transform.translate(
-                              offset: Offset(0, 20 * (1 - value)),
-                              child: child,
-                            ),
-                          ),
-                          child: Card(
-                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            elevation: 8,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            color: isDark
-                                ? theme.colorScheme.surface.withOpacity(0.85)
-                                : Color.fromARGB(
-                                    (0.7 * 255).toInt(),
-                                    Colors.white.red,
-                                    Colors.white.green,
-                                    Colors.white.blue,
-                                  ),
-                            shadowColor: isDark
-                                ? Colors.black.withOpacity(0.4)
-                                : Colors.black.withOpacity(0.12),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(18),
-                              splashColor: theme.colorScheme.primary.withOpacity(0.08),
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  PageRouteBuilder(
-                                    pageBuilder: (context, animation, secondaryAnimation) => IncidentDetails(incident: incident),
-                                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                      return FadeTransition(
-                                        opacity: animation,
-                                        child: child,
-                                      );
-                                    },
-                                  ),
-                                );
-                              },
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (incident.images.isNotEmpty)
-                                    Tooltip(
-                                      message: 'Tap to view details',
-                                      child: ClipRRect(
-                                        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-                                        child: AspectRatio(
-                                          aspectRatio: 16 / 9,
-                                          child: Image.network(
-                                            incident.images.first,
-                                            width: double.infinity,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) => Container(
-                                              color: isDark ? theme.colorScheme.surfaceVariant : Colors.grey[200],
-                                              child: const Center(child: Icon(Icons.broken_image)),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(18),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                incident.title,
-                                                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            Tooltip(
-                                              message: 'Status: ${incident.status.name}',
-                                              child: _buildStatusChip(context, incident.status),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          incident.description,
-                                          style: Theme.of(context).textTheme.bodyMedium,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 12),
-                                        SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: Row(
-                                            children: [
-                                              Tooltip(
-                                                message: 'Category: ${incident.category}',
-                                                child: _buildCategoryChip(context, incident.category),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Tooltip(
-                                                message: 'Priority: ${incident.priority.name}',
-                                                child: _buildPriorityChip(context, incident.priority),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Row(
-                                                children: [
-                                                  const Icon(Icons.calendar_today, size: 16, color: Color(0xFF4F8EFF)),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    _formatDate(incident.createdAt),
-                                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[700]),
-                                                  ),
-                                                ],
-                                              ),
-                                              if (incident.status != IncidentStatus.resolved)
-                                                IconButton(
-                                                  tooltip: 'Mark as resolved',
-                                                  icon: const Icon(Icons.check_circle_outline, color: Colors.green),
-                                                  onPressed: () => _confirmMarkAsResolved(context, incident),
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-        ),
-      ],
+                        },
+                      ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -447,5 +341,203 @@ class _ReportsListState extends State<ReportsList> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+}
+
+class _ReportTile extends StatelessWidget {
+  final Incident incident;
+  final bool isOfficer;
+  final VoidCallback onTap;
+
+  const _ReportTile({
+    required this.incident,
+    required this.isOfficer,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeIn,
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, 20 * (1 - value)),
+          child: child,
+        ),
+      ),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            color: theme.brightness == Brightness.dark
+                ? theme.colorScheme.surface.withOpacity(0.85)
+                : Colors.white.withOpacity(0.7),
+            shadowColor: theme.brightness == Brightness.dark
+                ? Colors.black.withOpacity(0.4)
+                : Colors.black.withOpacity(0.12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (incident.images.isNotEmpty)
+                  Tooltip(
+                    message: 'Tap to view details',
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Image.network(
+                          incident.images.first,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: theme.brightness == Brightness.dark ? theme.colorScheme.surfaceVariant : Colors.grey[200],
+                            child: const Center(child: Icon(Icons.broken_image)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              incident.title,
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Tooltip(
+                            message: 'Status: ${incident.status.name}',
+                            child: _buildStatusChip(context, incident.status),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        incident.description,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 12),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            Tooltip(
+                              message: 'Category: ${incident.category}',
+                              child: _buildCategoryChip(context, incident.category),
+                            ),
+                            const SizedBox(width: 8),
+                            Tooltip(
+                              message: 'Priority: ${incident.priority.name}',
+                              child: _buildPriorityChip(context, incident.priority),
+                            ),
+                            const SizedBox(width: 8),
+                            Row(
+                              children: [
+                                const Icon(Icons.calendar_today, size: 16, color: Color(0xFF4F8EFF)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _formatDate(incident.createdAt),
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[700]),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(BuildContext context, IncidentStatus status) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    Color color;
+    IconData icon;
+    switch (status) {
+      case IncidentStatus.open:
+        color = Colors.red;
+        icon = Icons.error_outline;
+        break;
+      case IncidentStatus.inProgress:
+        color = Colors.orange;
+        icon = Icons.pending_outlined;
+        break;
+      case IncidentStatus.resolved:
+        color = Colors.green;
+        icon = Icons.check_circle_outline;
+        break;
+    }
+    return Chip(
+      avatar: Icon(icon, size: 16, color: color),
+      label: Text(status.name.toUpperCase()),
+      backgroundColor: isDark ? color.withOpacity(0.25) : color.withOpacity(0.9),
+      labelStyle: TextStyle(color: isDark ? color : color),
+    );
+  }
+
+  Widget _buildCategoryChip(BuildContext context, String category) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return Chip(
+      label: Text(category),
+      backgroundColor: isDark
+          ? theme.colorScheme.primary.withOpacity(0.18)
+          : theme.colorScheme.primary.withOpacity(0.1),
+      labelStyle: TextStyle(
+        color: isDark ? theme.colorScheme.primary : theme.colorScheme.primary,
+      ),
+    );
+  }
+
+  Widget _buildPriorityChip(BuildContext context, IncidentPriority priority) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    Color color;
+    switch (priority) {
+      case IncidentPriority.high:
+        color = Colors.red;
+        break;
+      case IncidentPriority.medium:
+        color = Colors.orange;
+        break;
+      case IncidentPriority.low:
+        color = Colors.green;
+        break;
+    }
+    return Chip(
+      label: Text(priority.name.toUpperCase()),
+      backgroundColor: isDark ? color.withOpacity(0.18) : color.withOpacity(0.1),
+      labelStyle: TextStyle(color: isDark ? color : color),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
   }
 }

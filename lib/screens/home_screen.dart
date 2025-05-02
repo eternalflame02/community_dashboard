@@ -17,19 +17,32 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _pages = const [
-    IncidentsMap(),
-    ReportsList(),
-    ProfileScreen(),
-  ];
+  // Add a GlobalKey for ReportsList
+  final GlobalKey<ReportsListState> _reportsListKey = GlobalKey<ReportsListState>();
 
-  void _showReportIncident() {
-    Navigator.of(context).push(
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      const IncidentsMap(),
+      ReportsList(key: _reportsListKey),
+      const ProfileScreen(),
+    ];
+  }
+
+  Future<void> _showReportIncident() async {
+    final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => const ReportIncidentScreen(),
         fullscreenDialog: true,
       ),
     );
+    // If a report was submitted and we're on the Reports page, refresh it
+    if (result == true && _selectedIndex == 1) {
+      _reportsListKey.currentState?.refresh();
+    }
   }
 
   void _showLogoutConfirmation() async {
@@ -122,24 +135,26 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      floatingActionButton: Tooltip(
-        message: 'Report a new incident',
-        child: AnimatedScale(
-          scale: 1.0,
-          duration: const Duration(milliseconds: 200),
-          child: FloatingActionButton.extended(
-            backgroundColor: theme.colorScheme.primary,
-            foregroundColor: theme.colorScheme.onPrimary,
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            onPressed: _showReportIncident,
-            icon: const Icon(Icons.add),
-            label: const Text('Report'),
-          ),
-        ),
-      ),
+      floatingActionButton: (_selectedIndex == 0 || _selectedIndex == 1)
+          ? Tooltip(
+              message: 'Report a new incident',
+              child: AnimatedScale(
+                scale: 1.0,
+                duration: const Duration(milliseconds: 200),
+                child: FloatingActionButton.extended(
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: theme.colorScheme.onPrimary,
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  onPressed: _showReportIncident,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Report'),
+                ),
+              ),
+            )
+          : null,
       bottomNavigationBar: isDesktop
           ? null
           : Padding(
