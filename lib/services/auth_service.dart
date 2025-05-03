@@ -121,6 +121,7 @@ class AuthService extends ChangeNotifier {
     // fallback to default user if backend fails
     return AppUser(
       id: firebaseUser.uid,
+      firebaseId: firebaseUser.uid,
       email: firebaseUser.email ?? '',
       displayName: firebaseUser.displayName,
       photoURL: firebaseUser.photoURL,

@@ -135,6 +135,13 @@ class _IncidentsMapState extends State<IncidentsMap> {
                 Text('Failed to load incidents', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
                 Text('${snapshot.error}', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.red[400])),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  onPressed: () => setState(() {}),
+                ),
               ],
             ),
           );

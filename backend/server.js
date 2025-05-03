@@ -208,7 +208,7 @@ app.patch('/incidents/:id', async (req, res) => {
   }
 });
 
-// Sync user from frontend (create if not exists)
+// Sync user from frontend (create if not exists, or update by email if needed)
 app.post('/users/sync', async (req, res) => {
   try {
     const { firebaseId, email, displayName } = req.body;
@@ -222,8 +222,18 @@ app.post('/users/sync', async (req, res) => {
       }
     }
     if (!user) {
-      user = new User({ firebaseId, email, displayName: finalDisplayName, role: 'user' });
-      await user.save();
+      // Check if a user with this email already exists (e.g., signed in with another provider)
+      user = await User.findOne({ email });
+      if (user) {
+        // Update the existing user's firebaseId and displayName if needed
+        user.firebaseId = firebaseId;
+        user.displayName = finalDisplayName;
+        await user.save();
+      } else {
+        // Create new user
+        user = new User({ firebaseId, email, displayName: finalDisplayName, role: 'user' });
+        await user.save();
+      }
     } else if (user.displayName !== finalDisplayName) {
       user.displayName = finalDisplayName;
       await user.save();

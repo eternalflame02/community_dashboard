@@ -51,7 +51,7 @@ class ReportsListState extends State<ReportsList> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading incidents: $e')),
+          SnackBar(content: Text('Error loading incidents: $e'), backgroundColor: Colors.red, duration: Duration(seconds: 6)),
         );
       }
     } finally {
@@ -78,148 +78,162 @@ class ReportsListState extends State<ReportsList> {
         defaultTargetPlatform == TargetPlatform.linux;
 
     return Scaffold(
-      body: Column(
+      body: Stack(
         children: [
-          ExpansionPanelList(
-            expansionCallback: (int index, bool isExpanded) {
-              setState(() {
-                _showCompleted = !_showCompleted;
-              });
-            },
+          Column(
             children: [
-              ExpansionPanel(
-                headerBuilder: (BuildContext context, bool isExpanded) {
-                  return ListTile(
-                    title: const Text('Completed Reports'),
-                  );
+              ExpansionPanelList(
+                expansionCallback: (int index, bool isExpanded) {
+                  setState(() {
+                    _showCompleted = !_showCompleted;
+                  });
                 },
-                body: Column(
-                  children: _incidents
-                      .where((incident) => incident.status == IncidentStatus.resolved)
-                      .map((incident) => ListTile(
-                            title: Text(incident.title),
-                            subtitle: Text(incident.description),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => IncidentDetails(incident: incident),
-                                ),
-                              );
-                            },
-                          ))
-                      .toList(),
-                ),
-                isExpanded: _showCompleted,
+                children: [
+                  ExpansionPanel(
+                    headerBuilder: (BuildContext context, bool isExpanded) {
+                      return ListTile(
+                        title: const Text('Completed Reports'),
+                      );
+                    },
+                    body: Column(
+                      children: _incidents
+                          .where((incident) => incident.status == IncidentStatus.resolved)
+                          .map((incident) => ListTile(
+                                title: Text(incident.title),
+                                subtitle: Text(incident.description),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => IncidentDetails(incident: incident),
+                                    ),
+                                  );
+                                },
+                              ))
+                          .toList(),
+                    ),
+                    isExpanded: _showCompleted,
+                  ),
+                ],
               ),
-            ],
-          ),
-          Expanded(
-            child: _isLoading && _incidents.isEmpty
-                ? ListView.separated(
-                    itemCount: 6,
-                    separatorBuilder: (context, index) => const Divider(),
-                    itemBuilder: (context, index) => Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Shimmer.fromColors(
-                        baseColor: Colors.grey[300]!,
-                        highlightColor: Colors.grey[100]!,
-                        child: Container(
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(18),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.08),
-                                blurRadius: 16,
-                                offset: const Offset(0, 6),
+              Expanded(
+                child: _isLoading && _incidents.isEmpty
+                    ? ListView.separated(
+                        itemCount: 6,
+                        separatorBuilder: (context, index) => const Divider(),
+                        itemBuilder: (context, index) => Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          child: Shimmer.fromColors(
+                            baseColor: Colors.grey[300]!,
+                            highlightColor: Colors.grey[100]!,
+                            child: Container(
+                              height: 120,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(18),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.08),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  )
-                : _incidents.where((incident) => incident.status != IncidentStatus.resolved).toList().isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: theme.brightness == Brightness.dark ? theme.colorScheme.surfaceVariant : Colors.grey[200],
-                              ),
-                              padding: const EdgeInsets.all(18),
-                              child: Icon(Icons.inbox, size: 64, color: theme.brightness == Brightness.dark ? Colors.grey[600] : Colors.grey[500]),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No incidents to display',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: theme.brightness == Brightness.dark ? Colors.grey[200] : Colors.grey[700],
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'All clear! No reports at the moment.',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.brightness == Brightness.dark ? Colors.grey[500] : Colors.grey[500],
-                              ),
-                            ),
-                          ],
-                        ),
                       )
-                    : LayoutBuilder(
-                        builder: (context, constraints) {
-                          final crossAxisCount = isDesktop
-                              ? (constraints.maxWidth ~/ 350).clamp(2, 5)
-                              : 1;
-                          final incidents = _incidents.where((incident) => incident.status != IncidentStatus.resolved).toList();
-                          return GridView.builder(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // less padding
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: crossAxisCount,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
-                              childAspectRatio: isDesktop ? 0.85 : 1.0, // make tiles taller
+                    : _incidents.where((incident) => incident.status != IncidentStatus.resolved).toList().isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: theme.brightness == Brightness.dark ? theme.colorScheme.surfaceVariant : Colors.grey[200],
+                                  ),
+                                  padding: const EdgeInsets.all(18),
+                                  child: Icon(Icons.inbox, size: 64, color: theme.brightness == Brightness.dark ? Colors.grey[600] : Colors.grey[500]),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No incidents to display',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    color: theme.brightness == Brightness.dark ? Colors.grey[200] : Colors.grey[700],
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'All clear! No reports at the moment.',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.brightness == Brightness.dark ? Colors.grey[500] : Colors.grey[500],
+                                  ),
+                                ),
+                              ],
                             ),
-                            itemCount: incidents.length,
-                            itemBuilder: (context, index) {
-                              final incident = incidents[index];
-                              return _ReportTile(
-                                incident: incident,
-                                isOfficer: isOfficer,
-                                onTap: () async {
-                                  final result = await Navigator.push(
-                                    context,
-                                    PageRouteBuilder(
-                                      pageBuilder: (context, animation, secondaryAnimation) => IncidentDetails(incident: incident),
-                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                        return FadeTransition(
-                                          opacity: animation,
-                                          child: child,
+                          )
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              final crossAxisCount = isDesktop
+                                  ? (constraints.maxWidth ~/ 350).clamp(2, 5)
+                                  : 1;
+                              final incidents = _incidents.where((incident) => incident.status != IncidentStatus.resolved).toList();
+                              return GridView.builder(
+                                controller: _scrollController,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: crossAxisCount,
+                                  crossAxisSpacing: 16,
+                                  mainAxisSpacing: 16,
+                                  childAspectRatio: isDesktop ? 0.85 : 1.0,
+                                ),
+                                itemCount: incidents.length,
+                                itemBuilder: (context, index) {
+                                  final incident = incidents[index];
+                                  return AbsorbPointer(
+                                    absorbing: _isLoading,
+                                    child: _ReportTile(
+                                      incident: incident,
+                                      isOfficer: isOfficer,
+                                      onTap: () async {
+                                        final result = await Navigator.push(
+                                          context,
+                                          PageRouteBuilder(
+                                            pageBuilder: (context, animation, secondaryAnimation) => IncidentDetails(incident: incident),
+                                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                              return FadeTransition(
+                                                opacity: animation,
+                                                child: child,
+                                              );
+                                            },
+                                          ),
                                         );
+                                        if (result == true) {
+                                          setState(() {
+                                            _incidents.clear();
+                                            _currentPage = 1;
+                                          });
+                                          _fetchMoreIncidents();
+                                        }
                                       },
                                     ),
                                   );
-                                  if (result == true) {
-                                    setState(() {
-                                      _incidents.clear();
-                                      _currentPage = 1;
-                                    });
-                                    _fetchMoreIncidents();
-                                  }
                                 },
                               );
                             },
-                          );
-                        },
-                      ),
+                          ),
+              ),
+            ],
           ),
+          if (_isLoading && _incidents.isNotEmpty)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: LinearProgressIndicator(minHeight: 3),
+            ),
         ],
       ),
     );
@@ -344,7 +358,7 @@ class ReportsListState extends State<ReportsList> {
   }
 }
 
-class _ReportTile extends StatelessWidget {
+class _ReportTile extends StatefulWidget {
   final Incident incident;
   final bool isOfficer;
   final VoidCallback onTap;
@@ -356,26 +370,35 @@ class _ReportTile extends StatelessWidget {
   });
 
   @override
+  State<_ReportTile> createState() => _ReportTileState();
+}
+
+class _ReportTileState extends State<_ReportTile> {
+  bool _hovering = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeIn,
-      builder: (context, value, child) => Opacity(
-        opacity: value,
-        child: Transform.translate(
-          offset: Offset(0, 20 * (1 - value)),
+      tween: Tween<double>(begin: 1, end: _hovering ? 1.04 : 1),
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      builder: (context, scale, child) => Opacity(
+        opacity: 1,
+        child: Transform.scale(
+          scale: scale,
           child: child,
         ),
       ),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovering = true),
+        onExit: (_) => setState(() => _hovering = false),
         child: GestureDetector(
-          onTap: onTap,
+          onTap: widget.onTap,
           child: Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            elevation: 8,
+            elevation: _hovering ? 18 : 8,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
             ),
@@ -388,7 +411,7 @@ class _ReportTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (incident.images.isNotEmpty)
+                if (widget.incident.images.isNotEmpty)
                   Tooltip(
                     message: 'Tap to view details',
                     child: ClipRRect(
@@ -396,7 +419,7 @@ class _ReportTile extends StatelessWidget {
                       child: AspectRatio(
                         aspectRatio: 16 / 9,
                         child: Image.network(
-                          incident.images.first,
+                          widget.incident.images.first,
                           width: double.infinity,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) => Container(
@@ -416,21 +439,21 @@ class _ReportTile extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              incident.title,
+                              widget.incident.title,
                               style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           Tooltip(
-                            message: 'Status: ${incident.status.name}',
-                            child: _buildStatusChip(context, incident.status),
+                            message: 'Status: ${widget.incident.status.name}',
+                            child: _buildStatusChip(context, widget.incident.status),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        incident.description,
+                        widget.incident.description,
                         style: Theme.of(context).textTheme.bodyMedium,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -441,13 +464,13 @@ class _ReportTile extends StatelessWidget {
                         child: Row(
                           children: [
                             Tooltip(
-                              message: 'Category: ${incident.category}',
-                              child: _buildCategoryChip(context, incident.category),
+                              message: 'Category: ${widget.incident.category}',
+                              child: _buildCategoryChip(context, widget.incident.category),
                             ),
                             const SizedBox(width: 8),
                             Tooltip(
-                              message: 'Priority: ${incident.priority.name}',
-                              child: _buildPriorityChip(context, incident.priority),
+                              message: 'Priority: ${widget.incident.priority.name}',
+                              child: _buildPriorityChip(context, widget.incident.priority),
                             ),
                             const SizedBox(width: 8),
                             Row(
@@ -455,7 +478,7 @@ class _ReportTile extends StatelessWidget {
                                 const Icon(Icons.calendar_today, size: 16, color: Color(0xFF4F8EFF)),
                                 const SizedBox(width: 4),
                                 Text(
-                                  _formatDate(incident.createdAt),
+                                  _formatDate(widget.incident.createdAt),
                                   style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[700]),
                                 ),
                               ],

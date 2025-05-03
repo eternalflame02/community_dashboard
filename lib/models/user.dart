@@ -1,5 +1,6 @@
 class AppUser {
   final String id;
+  final String firebaseId;
   final String email;
   final String? displayName;
   final String? photoURL;
@@ -7,6 +8,7 @@ class AppUser {
 
   AppUser({
     required this.id,
+    required this.firebaseId,
     required this.email,
     this.displayName,
     this.photoURL,
@@ -16,6 +18,7 @@ class AppUser {
   factory AppUser.fromMap(Map<String, dynamic> map) {
     return AppUser(
       id: map['_id'] ?? map['id'] ?? '',
+      firebaseId: map['firebaseId'] ?? '',
       email: map['email'] ?? '',
       displayName: map['displayName'],
       photoURL: map['photoURL'],
@@ -25,6 +28,6 @@ class AppUser {
 
   @override
   String toString() {
-    return 'AppUser{id: $id, email: $email, displayName: $displayName, photoURL: $photoURL, role: $role}';
+    return 'AppUser{id: $id, firebaseId: $firebaseId, email: $email, displayName: $displayName, photoURL: $photoURL, role: $role}';
   }
 }

@@ -87,7 +87,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error getting location: $e')),
+          SnackBar(content: Text('Error getting location: $e'), backgroundColor: Colors.red, duration: Duration(seconds: 6)),
         );
       }
     }
@@ -104,7 +104,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking images: $e')),
+          SnackBar(content: Text('Error picking images: $e'), backgroundColor: Colors.red, duration: Duration(seconds: 6)),
         );
       }
     }
@@ -164,6 +164,11 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
         }
       } catch (e) {
         debugPrint('Error uploading image: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error uploading image: $e'), backgroundColor: Colors.red, duration: Duration(seconds: 6)),
+          );
+        }
         rethrow;
       }
     }
@@ -173,7 +178,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
   Future<void> _submitReport() async {
     if (!_formKey.currentState!.validate() || _selectedLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all required fields')),
+        const SnackBar(content: Text('Please fill all required fields'), backgroundColor: Colors.red, duration: Duration(seconds: 5)),
       );
       return;
     }
@@ -207,7 +212,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
       if (userId == null || userId.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('You must be logged in to submit a report.')),
+            const SnackBar(content: Text('You must be logged in to submit a report.'), backgroundColor: Colors.red, duration: Duration(seconds: 5)),
           );
         }
         setState(() => _isLoading = false);
@@ -256,7 +261,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Incident reported successfully')),
+          const SnackBar(content: Text('Incident reported successfully'), backgroundColor: Colors.green, duration: Duration(seconds: 4)),
         );
         Navigator.pop(context, true); // Pass `true` to indicate a new report was added
       }

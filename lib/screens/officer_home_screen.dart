@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'dashboard/incidents_map.dart';
 import 'dashboard/reports_list.dart';
 import '../services/auth_service.dart';
+import 'dashboard/profile_screen.dart';
 
 class OfficerHomeScreen extends StatefulWidget {
   const OfficerHomeScreen({super.key});
@@ -13,6 +14,18 @@ class OfficerHomeScreen extends StatefulWidget {
 
 class _OfficerHomeScreenState extends State<OfficerHomeScreen> {
   int _selectedIndex = 0;
+
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = const [
+      IncidentsMap(),
+      _OfficerReportsList(),
+      ProfileScreen(),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,15 +87,16 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen> {
                   icon: Icon(Icons.list),
                   label: Text('Priority Reports'),
                 ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.person),
+                  label: Text('Profile'),
+                ),
               ],
             ),
           Expanded(
             child: IndexedStack(
               index: _selectedIndex,
-              children: const [
-                IncidentsMap(),
-                _OfficerReportsList(),
-              ],
+              children: _pages,
             ),
           ),
         ],
@@ -104,6 +118,10 @@ class _OfficerHomeScreenState extends State<OfficerHomeScreen> {
                 NavigationDestination(
                   icon: Icon(Icons.list),
                   label: 'Priority Reports',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person),
+                  label: 'Profile',
                 ),
               ],
             ),

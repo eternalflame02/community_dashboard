@@ -142,9 +142,9 @@ class _IncidentDetailsState extends State<IncidentDetails> {
 
   Future<void> _checkEditPermission() async {
     final authService = Provider.of<AuthService>(context, listen: false);
-    final currentUserId = authService.currentUser?.id;
+    final currentUserFirebaseId = authService.currentUser?.firebaseId;
     setState(() {
-      _canEdit = (_incident.reporterId == currentUserId);
+      _canEdit = (_incident.reporterId.toString() == currentUserFirebaseId?.toString());
       _isLoading = false;
     });
   }
@@ -218,7 +218,7 @@ class _IncidentDetailsState extends State<IncidentDetails> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error refreshing incident: $e')),
+          SnackBar(content: Text('Error refreshing incident: $e'), backgroundColor: Colors.red, duration: Duration(seconds: 6)),
         );
         setState(() => _isLoading = false);
       }
@@ -251,7 +251,7 @@ class _IncidentDetailsState extends State<IncidentDetails> {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Status updated to \\${status.name}')),
+          SnackBar(content: Text('Status updated to ${status.name}'), backgroundColor: Colors.green, duration: Duration(seconds: 4)),
         );
         Navigator.pop(context, true); // Notify parent to refresh
       }
@@ -259,7 +259,7 @@ class _IncidentDetailsState extends State<IncidentDetails> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating status: \\${e}')),
+          SnackBar(content: Text('Error updating status: $e'), backgroundColor: Colors.red, duration: Duration(seconds: 6)),
         );
       }
     }
@@ -307,7 +307,7 @@ class _IncidentDetailsState extends State<IncidentDetails> {
                           itemCount: _incident.images.length,
                           itemBuilder: (context, index) {
                             return Hero(
-                              tag: 'incident-image-{_incident.id}-$index',
+                              tag: 'incident-image-${_incident.id}-$index',
                               child: GestureDetector(
                                 onTap: () => _showImageFullscreen(index),
                                 child: Image.network(
