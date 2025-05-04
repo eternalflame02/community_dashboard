@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -217,6 +219,7 @@ class _IncidentDetailsState extends State<IncidentDetails> {
     try {
       await Provider.of<IncidentService>(context, listen: false)
           .updateIncidentStatus(_incident.id, status, context: context);
+      // ignore: use_build_context_synchronously
       final updatedIncident = await Provider.of<IncidentService>(context, listen: false)
           .fetchIncidentById(_incident.id);
       if (mounted) {
@@ -432,7 +435,7 @@ class _IncidentDetailsState extends State<IncidentDetails> {
                                   _buildTimelineItem(
                                     'Reported',
                                     _incident.createdAt,
-                                    _reporterName ?? _incident.reporterId ?? 'N/A',
+                                    _reporterName ?? 'Unknown User',
                                     Icons.flag,
                                     Colors.blue,
                                   ),

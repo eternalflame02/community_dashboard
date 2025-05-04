@@ -1,19 +1,4 @@
-@JS()
-library firebase_web_utils;
-
-import 'package:js/js.dart';
 import 'package:js/js_util.dart' as js_util;
-
-@JS('Promise')
-class PromiseJsImpl<T> {
-  external PromiseJsImpl(void Function(void Function(T) resolve, void Function(Object) reject) executor);
-  external PromiseJsImpl then(Function(T) onFulfilled, [Function(Object) onRejected]);
-}
-
-@JS('Object')
-class JsObject {
-  external dynamic toJSON();
-}
 
 Future<T> handleThenable<T>(Object thenable) async {
   try {

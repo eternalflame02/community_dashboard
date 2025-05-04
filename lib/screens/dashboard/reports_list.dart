@@ -1,7 +1,7 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../../models/incident.dart';
 import '../../services/incident_service.dart';
@@ -22,11 +22,10 @@ class ReportsListState extends State<ReportsList> {
   bool _isLoading = false;
   int _currentPage = 1;
   final int _limit = 10;
-  bool _showCompleted = false;
-  int _selectedStatusIndex = 0; // 0: Open, 1: In Progress, 2: Resolved
-  int _segmentedStatus = 0; // 0: Open, 1: In Progress, 2: Resolved
-  int _dropdownStatus = 0; // 0: Open, 1: In Progress, 2: Resolved
-  int _sideNavStatus = 0; // 0: Open, 1: In Progress, 2: Resolved
+// 0: Open, 1: In Progress, 2: Resolved
+// 0: Open, 1: In Progress, 2: Resolved
+// 0: Open, 1: In Progress, 2: Resolved
+// 0: Open, 1: In Progress, 2: Resolved
 
   @override
   void initState() {
@@ -80,8 +79,7 @@ class ReportsListState extends State<ReportsList> {
 
   @override
   Widget build(BuildContext context) {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final isOfficer = authService.currentUser?.role == 'officer';
+    Provider.of<AuthService>(context, listen: false);
     final theme = Theme.of(context);
 
     // Group incidents by status for color/icon

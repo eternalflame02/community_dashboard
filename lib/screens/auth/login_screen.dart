@@ -157,6 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: TextButton(
                         onPressed: _isLoading ? null : () {
                           // TODO: Implement forgot password navigation
+                          // You can use: Navigator.push(context, MaterialPageRoute(builder: (_) => ForgotPasswordScreen()));
                         },
                         child: const Text('Forgot password?'),
                       ),

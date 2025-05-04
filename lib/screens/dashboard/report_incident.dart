@@ -32,7 +32,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
   
   bool _isLoading = false;
   LatLng? _selectedLocation;
-  List<XFile> _selectedImages = [];
+  final List<XFile> _selectedImages = [];
   String _category = 'Other';
   IncidentPriority _priority = IncidentPriority.medium;
 
@@ -206,7 +206,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
             }),
           );
         } catch (e) {
-          debugPrint('User sync failed: ${e}');
+          debugPrint('User sync failed: $e');
         }
       }
 
@@ -219,7 +219,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
         setState(() => _isLoading = false);
         return;
       }
-      debugPrint('Reporter ID used for incident: ' + userId);
+      debugPrint('Reporter ID used for incident: $userId');
       List<String> imageUrls = [];
       
       if (_selectedImages.isNotEmpty) {

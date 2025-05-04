@@ -40,9 +40,7 @@ class MockFirebasePlatform extends FirebasePlatform with MockPlatformInterfaceMi
   
   @override
   FirebaseAppPlatform app([String name = defaultFirebaseAppName]) {
-    if (_app == null) {
-      _app = MockFirebaseAppPlatform();
-    }
+    _app ??= MockFirebaseAppPlatform();
     return _app!;
   }
 
@@ -57,7 +55,6 @@ class MockFirebasePlatform extends FirebasePlatform with MockPlatformInterfaceMi
   @override
   List<FirebaseAppPlatform> get apps => [app()];
 
-  @override
   Future<List<Map<String, dynamic>>> initializeCore() async {
     return [
       {
@@ -72,10 +69,8 @@ class MockFirebasePlatform extends FirebasePlatform with MockPlatformInterfaceMi
     ];
   }
 
-  @override
   bool get isIOS => false;
 
-  @override
   bool get isMacOS => false;
 }
 

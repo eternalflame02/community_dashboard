@@ -4,8 +4,6 @@ import '../models/incident.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:image/image.dart' as img;
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'auth_service.dart';
 import '../config/api.dart';
@@ -92,7 +90,7 @@ class IncidentService extends ChangeNotifier {
     try {
       String? reporterId = incident.reporterId;
       // If reporterId is not set, try to get it from AuthService
-      if ((reporterId == null || reporterId.isEmpty) && context != null) {
+      if (reporterId.isEmpty && context != null) {
         final authService = Provider.of<AuthService>(context, listen: false);
         reporterId = authService.currentUser?.id;
       }
@@ -119,7 +117,7 @@ class IncidentService extends ChangeNotifier {
         throw Exception('Failed to create incident: \\${response.body}');
       }
     } catch (e) {
-      debugPrint('Error creating incident: \\${e}');
+      debugPrint('Error creating incident: \\$e');
       throw Exception('An unexpected error occurred while creating the incident.');
     }
   }
@@ -147,7 +145,7 @@ class IncidentService extends ChangeNotifier {
               }),
             );
           } catch (e) {
-            debugPrint('User sync failed: \\${e}');
+            debugPrint('User sync failed: \\$e');
           }
         }
       }
@@ -191,18 +189,6 @@ class IncidentService extends ChangeNotifier {
     }
   }
 
-  Future<List<String>> _compressAndUploadImages(List<XFile> images) async {
-    final List<String> base64Images = [];
-    for (final image in images) {
-      final bytes = await image.readAsBytes();
-      final decodedImage = img.decodeImage(Uint8List.fromList(bytes));
-      if (decodedImage != null) {
-        final compressedImage = img.encodeJpg(decodedImage, quality: 70); // Compress to 70% quality
-        base64Images.add(base64Encode(compressedImage));
-      }
-    }
-    return base64Images;
-  }
 
   // Added `incidentStream` getter to provide a stream of incidents
   Stream<List<Incident>> get incidentStream async* {
