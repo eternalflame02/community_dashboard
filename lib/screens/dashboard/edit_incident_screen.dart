@@ -107,15 +107,15 @@ class _EditIncidentScreenState extends State<EditIncidentScreen> {
                       child: FlutterMap(
                         mapController: _mapController,
                         options: MapOptions(
-                          center: _selectedLocation,
-                          zoom: 15,
+                          initialCenter: _selectedLocation,
+                          initialZoom: 15,
                           onTap: (tapPosition, point) {
                             setState(() {
                               _selectedLocation = point;
                             });
                           },
                         ),
-                        nonRotatedChildren: [
+                        children: [
                           MarkerLayer(
                             markers: [
                               Marker(
@@ -126,12 +126,14 @@ class _EditIncidentScreenState extends State<EditIncidentScreen> {
                               ),
                             ],
                           ),
-                        ],
-                        children: [
                           TileLayer(
-                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            urlTemplate: Theme.of(context).brightness == Brightness.dark
+                                ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+                                : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            subdomains: Theme.of(context).brightness == Brightness.dark ? ['a', 'b', 'c'] : [],
                             userAgentPackageName: 'com.safety.community_dashboard',
                             tileProvider: CancellableNetworkTileProvider(),
+                            retinaMode: true,
                           ),
                         ],
                       ),

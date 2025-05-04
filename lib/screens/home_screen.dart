@@ -117,6 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+          // Modern card-like container for main content
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 400),
@@ -129,7 +130,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: isDesktop
                     ? const EdgeInsets.symmetric(horizontal: 32, vertical: 24)
                     : const EdgeInsets.all(8.0),
-                child: _pages[_selectedIndex],
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  padding: isDesktop
+                      ? const EdgeInsets.all(24)
+                      : const EdgeInsets.all(8),
+                  child: _pages[_selectedIndex],
+                ),
               ),
             ),
           ),

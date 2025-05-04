@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../../models/incident.dart';
 import '../../services/incident_service.dart';
 import '../../services/auth_service.dart'; // Added import
 import 'incident_details.dart';
-//import 'report_incident.dart'; // Import the ReportIncidentScreen class
-import 'edit_incident_screen.dart'; // Import the EditIncidentScreen class
 
 class ReportsList extends StatefulWidget {
   final bool sortByPriority;
@@ -24,6 +23,10 @@ class ReportsListState extends State<ReportsList> {
   int _currentPage = 1;
   final int _limit = 10;
   bool _showCompleted = false;
+  int _selectedStatusIndex = 0; // 0: Open, 1: In Progress, 2: Resolved
+  int _segmentedStatus = 0; // 0: Open, 1: In Progress, 2: Resolved
+  int _dropdownStatus = 0; // 0: Open, 1: In Progress, 2: Resolved
+  int _sideNavStatus = 0; // 0: Open, 1: In Progress, 2: Resolved
 
   @override
   void initState() {
@@ -80,317 +83,138 @@ class ReportsListState extends State<ReportsList> {
     final authService = Provider.of<AuthService>(context, listen: false);
     final isOfficer = authService.currentUser?.role == 'officer';
     final theme = Theme.of(context);
-    final isDesktop = defaultTargetPlatform == TargetPlatform.windows ||
-        defaultTargetPlatform == TargetPlatform.macOS ||
-        defaultTargetPlatform == TargetPlatform.linux;
+
+    // Group incidents by status for color/icon
+    final statusLabels = ['Open', 'In Progress', 'Resolved'];
+    final statusColors = [Colors.red, Colors.orange, Colors.green];
+    final statusIcons = [Icons.error_outline, Icons.pending_outlined, Icons.check_circle_outline];
+
+    // All incidents, sorted by status then date
+    final allIncidents = [
+      ..._incidents.where((i) => i.status == IncidentStatus.open).map((i) => {'incident': i, 'status': 0}),
+      ..._incidents.where((i) => i.status == IncidentStatus.inProgress).map((i) => {'incident': i, 'status': 1}),
+      ..._incidents.where((i) => i.status == IncidentStatus.resolved).map((i) => {'incident': i, 'status': 2}),
+    ];
 
     return Scaffold(
-      body: Stack(
-        children: [
-          Column(
-            children: [
-              ExpansionPanelList(
-                expansionCallback: (int index, bool isExpanded) {
-                  setState(() {
-                    _showCompleted = !_showCompleted;
-                  });
+      appBar: AppBar(title: const Text('Reports')),
+      body: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: MasonryGridView.count(
+          crossAxisCount: MediaQuery.of(context).size.width > 900 ? 4 : MediaQuery.of(context).size.width > 600 ? 3 : 2,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+          itemCount: allIncidents.length,
+          itemBuilder: (context, index) {
+            final map = allIncidents[index];
+            final incident = map['incident'] as Incident;
+            final statusIdx = map['status'] as int;
+            return Card(
+              elevation: 6,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              color: theme.cardColor,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => IncidentDetails(incident: incident),
+                    ),
+                  );
+                  if (result == true) {
+                    setState(() {
+                      _incidents.clear();
+                      _currentPage = 1;
+                    });
+                    _fetchMoreIncidents();
+                  }
                 },
-                children: [
-                  ExpansionPanel(
-                    headerBuilder: (BuildContext context, bool isExpanded) {
-                      return ListTile(
-                        title: const Text('Completed Reports'),
-                      );
-                    },
-                    body: _incidents.where((incident) => incident.status == IncidentStatus.resolved).isEmpty
-                        ? Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Text('No completed reports.'),
-                          )
-                        : LayoutBuilder(
-                            builder: (context, constraints) {
-                              final isDesktop = defaultTargetPlatform == TargetPlatform.windows ||
-                                  defaultTargetPlatform == TargetPlatform.macOS ||
-                                  defaultTargetPlatform == TargetPlatform.linux;
-                              final crossAxisCount = isDesktop
-                                  ? (constraints.maxWidth ~/ 350).clamp(2, 5)
-                                  : 1;
-                              final completedIncidents = _incidents.where((incident) => incident.status == IncidentStatus.resolved).toList();
-                              return GridView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: crossAxisCount,
-                                  crossAxisSpacing: 16,
-                                  mainAxisSpacing: 16,
-                                  childAspectRatio: isDesktop ? 0.85 : 1.0,
-                                ),
-                                itemCount: completedIncidents.length,
-                                itemBuilder: (context, index) {
-                                  final incident = completedIncidents[index];
-                                  return AbsorbPointer(
-                                    absorbing: _isLoading,
-                                    child: _ReportTile(
-                                      incident: incident,
-                                      isOfficer: isOfficer,
-                                      onTap: () async {
-                                        await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => IncidentDetails(incident: incident),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  );
-                                },
-                              );
-                            },
+                child: Padding(
+                  padding: const EdgeInsets.all(14.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: statusColors[statusIdx],
+                            child: Icon(statusIcons[statusIdx], color: Colors.white),
                           ),
-                    isExpanded: _showCompleted,
-                  ),
-                ],
-              ),
-              Expanded(
-                child: _isLoading && _incidents.isEmpty
-                    ? ListView.separated(
-                        itemCount: 6,
-                        separatorBuilder: (context, index) => const Divider(),
-                        itemBuilder: (context, index) => Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          child: Shimmer.fromColors(
-                            baseColor: Colors.grey[300]!,
-                            highlightColor: Colors.grey[100]!,
-                            child: Container(
-                              height: 120,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(18),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.08),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              statusLabels[statusIdx],
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: statusColors[statusIdx],
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
-                        ),
-                      )
-                    : _incidents.where((incident) => incident.status != IncidentStatus.resolved).toList().isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: theme.brightness == Brightness.dark ? theme.colorScheme.surfaceVariant : Colors.grey[200],
-                                  ),
-                                  padding: const EdgeInsets.all(18),
-                                  child: Icon(Icons.inbox, size: 64, color: theme.brightness == Brightness.dark ? Colors.grey[600] : Colors.grey[500]),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'No incidents to display',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: theme.brightness == Brightness.dark ? Colors.grey[200] : Colors.grey[700],
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'All clear! No reports at the moment.',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.brightness == Brightness.dark ? Colors.grey[500] : Colors.grey[500],
-                                  ),
-                                ),
-                              ],
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        incident.title,
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        incident.description,
+                        style: theme.textTheme.bodyMedium,
+                        maxLines: 5,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (incident.images.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            incident.images.first,
+                            height: 120 + (index % 3) * 30.0, // Vary height for masonry effect
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              color: Colors.grey[200],
+                              height: 120,
+                              child: const Center(child: Icon(Icons.broken_image)),
                             ),
-                          )
-                        : LayoutBuilder(
-                            builder: (context, constraints) {
-                              final crossAxisCount = isDesktop
-                                  ? (constraints.maxWidth ~/ 350).clamp(2, 5)
-                                  : 1;
-                              final incidents = _incidents.where((incident) => incident.status != IncidentStatus.resolved).toList();
-                              return GridView.builder(
-                                controller: _scrollController,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: crossAxisCount,
-                                  crossAxisSpacing: 16,
-                                  mainAxisSpacing: 16,
-                                  childAspectRatio: isDesktop ? 0.85 : 1.0,
-                                ),
-                                itemCount: incidents.length,
-                                itemBuilder: (context, index) {
-                                  final incident = incidents[index];
-                                  return AbsorbPointer(
-                                    absorbing: _isLoading,
-                                    child: _ReportTile(
-                                      incident: incident,
-                                      isOfficer: isOfficer,
-                                      onTap: () async {
-                                        final result = await Navigator.push(
-                                          context,
-                                          PageRouteBuilder(
-                                            pageBuilder: (context, animation, secondaryAnimation) => IncidentDetails(incident: incident),
-                                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                              return FadeTransition(
-                                                opacity: animation,
-                                                child: child,
-                                              );
-                                            },
-                                          ),
-                                        );
-                                        if (result == true) {
-                                          setState(() {
-                                            _incidents.clear();
-                                            _currentPage = 1;
-                                          });
-                                          _fetchMoreIncidents();
-                                        }
-                                      },
-                                    ),
-                                  );
-                                },
-                              );
-                            },
                           ),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text(_formatDate(incident.createdAt), style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+                          const Spacer(),
+                          Icon(Icons.category, size: 16, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text(incident.category, style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ],
-          ),
-          if (_isLoading && _incidents.isNotEmpty)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: LinearProgressIndicator(minHeight: 3),
-            ),
-        ],
+            );
+          },
+        ),
       ),
     );
-  }
-
-  Widget _buildStatusChip(BuildContext context, IncidentStatus status) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    Color color;
-    IconData icon;
-    switch (status) {
-      case IncidentStatus.open:
-        color = Colors.red;
-        icon = Icons.error_outline;
-        break;
-      case IncidentStatus.inProgress:
-        color = Colors.orange;
-        icon = Icons.pending_outlined;
-        break;
-      case IncidentStatus.resolved:
-        color = Colors.green;
-        icon = Icons.check_circle_outline;
-        break;
-    }
-    return Chip(
-      avatar: Icon(icon, size: 16, color: color),
-      label: Text(status.name.toUpperCase()),
-      backgroundColor: isDark ? color.withOpacity(0.25) : color.withOpacity(0.9),
-      labelStyle: TextStyle(color: isDark ? color : color),
-    );
-  }
-
-  Widget _buildCategoryChip(BuildContext context, String category) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    return Chip(
-      label: Text(category),
-      backgroundColor: isDark
-          ? theme.colorScheme.primary.withOpacity(0.18)
-          : theme.colorScheme.primary.withOpacity(0.1),
-      labelStyle: TextStyle(
-        color: isDark ? theme.colorScheme.primary : theme.colorScheme.primary,
-      ),
-    );
-  }
-
-  Widget _buildPriorityChip(BuildContext context, IncidentPriority priority) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    Color color;
-    switch (priority) {
-      case IncidentPriority.high:
-        color = Colors.red;
-        break;
-      case IncidentPriority.medium:
-        color = Colors.orange;
-        break;
-      case IncidentPriority.low:
-        color = Colors.green;
-        break;
-    }
-    return Chip(
-      label: Text(priority.name.toUpperCase()),
-      backgroundColor: isDark ? color.withOpacity(0.18) : color.withOpacity(0.1),
-      labelStyle: TextStyle(color: isDark ? color : color),
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
-
-  Future<void> _markAsResolved(BuildContext context, Incident incident) async {
-    try {
-      final incidentService =
-          Provider.of<IncidentService>(context, listen: false);
-      await incidentService.updateIncidentStatus(
-        incident.id,
-        IncidentStatus.resolved,
-      );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Incident marked as resolved')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _confirmMarkAsResolved(BuildContext context, Incident incident) async {
-    final shouldResolve = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Mark as Resolved'),
-        content: const Text('Are you sure you want to mark this incident as resolved?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Mark as Resolved'),
-          ),
-        ],
-      ),
-    );
-    if (shouldResolve == true) {
-      _markAsResolved(context, incident);
-    }
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
   }
 }
 

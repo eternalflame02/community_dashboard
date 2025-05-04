@@ -64,7 +64,7 @@ class Incident {
       status: _parseStatus(json['status'] as String),
       priority: _parsePriority(json['priority'] as int),
       reporterId: json['reporterId'] as String,
-      images: (json['images'] as List<dynamic>).cast<String>(),
+      images: (json['images'] as List<dynamic>?)?.cast<String>() ?? [],
       createdAt: DateTime.parse(json['createdAt'] as String),
       resolvedAt: json['resolvedAt'] != null ? DateTime.parse(json['resolvedAt'] as String) : null,
       inProgressBy: json['inProgressBy'],

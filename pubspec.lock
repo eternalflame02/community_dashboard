@@ -69,10 +69,10 @@ packages:
     dependency: transitive
     description:
       name: bson
-      sha256: "9b761248a3494fea594aecf5d6f369b5f04d7b082aa2b8c06579ade77f1a7e47"
+      sha256: f8c80be7a62a88f4add7c48cc83567c36a77532de107224df8328ef71f125045
       url: "https://pub.dev"
     source: hosted
-    version: "5.0.6"
+    version: "5.0.7"
   buffer:
     dependency: transitive
     description:
@@ -398,6 +398,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.28"
+  flutter_staggered_grid_view:
+    dependency: "direct main"
+    description:
+      name: flutter_staggered_grid_view
+      sha256: "19e7abb550c96fbfeb546b23f3ff356ee7c59a019a651f8f102a4ba9b7349395"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.7.0"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -593,7 +601,7 @@ packages:
     source: hosted
     version: "1.0.5"
   js:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: js
       sha256: "53385261521cc4a0c4658fd0ad07a7d14591cf8fc33abbceae306ddb974888dc"
@@ -724,10 +732,10 @@ packages:
     dependency: "direct main"
     description:
       name: mongo_dart
-      sha256: "5e94f2f7fc779eeab677afd5d98dc63f1f35a6adb4629d4b9d25028a4d06fd21"
+      sha256: "43b62b43c6449a0159bf138fba27653cb35acd92d3587ad26d1ec068cd645559"
       url: "https://pub.dev"
     source: hosted
-    version: "0.10.4"
+    version: "0.10.5"
   mongo_dart_query:
     dependency: transitive
     description:

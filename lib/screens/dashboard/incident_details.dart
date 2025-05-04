@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import '../../models/incident.dart';
 import '../../services/incident_service.dart';
 import '../../services/auth_service.dart'; // Ensure AuthService is imported
@@ -286,9 +284,17 @@ class _IncidentDetailsState extends State<IncidentDetails> {
                               tag: 'incident-image-${_incident.id}-$index',
                               child: GestureDetector(
                                 onTap: () => _showImageFullscreen(index),
-                                child: Image.network(
-                                  _incident.images[index],
-                                  fit: BoxFit.cover,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    _incident.images[index],
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    errorBuilder: (context, error, stackTrace) => Container(
+                                      color: Colors.grey[300],
+                                      child: const Center(child: Icon(Icons.broken_image)),
+                                    ),
+                                  ),
                                 ),
                               ),
                             );

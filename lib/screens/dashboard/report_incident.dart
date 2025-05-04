@@ -63,6 +63,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _addressController.dispose();
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -81,7 +82,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
         _selectedLocation = LatLng(position.latitude, position.longitude);
       });
 
-      if (_selectedLocation != null) {
+      if (mounted) {
         _mapController.move(_selectedLocation!, 15);
       }
     } catch (e) {
@@ -445,15 +446,15 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
                                 child: FlutterMap(
                                   mapController: _mapController,
                                   options: MapOptions(
-                                    center: _selectedLocation ?? LatLng(0, 0),
-                                    zoom: 15,
+                                    initialCenter: _selectedLocation ?? LatLng(0, 0),
+                                    initialZoom: 15,
                                     onTap: (tapPosition, point) {
                                       setState(() {
                                         _selectedLocation = point;
                                       });
                                     },
                                   ),
-                                  nonRotatedChildren: [
+                                  children: [
                                     if (_selectedLocation != null)
                                       MarkerLayer(
                                         markers: [
@@ -469,12 +470,14 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
                                           ),
                                         ],
                                       ),
-                                  ],
-                                  children: [
                                     TileLayer(
-                                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                      urlTemplate: Theme.of(context).brightness == Brightness.dark
+                                          ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+                                          : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                      subdomains: Theme.of(context).brightness == Brightness.dark ? ['a', 'b', 'c'] : [],
                                       userAgentPackageName: 'com.safety.community_dashboard',
                                       tileProvider: CancellableNetworkTileProvider(),
+                                      retinaMode: true,
                                     ),
                                   ],
                                 ),

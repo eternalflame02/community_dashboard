@@ -70,7 +70,65 @@ class MyApp extends StatelessWidget {
         builder: (context, themeProvider, child) {
           return MaterialApp(
             title: 'Community Dashboard',
-            theme: ThemeData.light(useMaterial3: true),
+            theme: ThemeData(
+              useMaterial3: true,
+              colorScheme: ColorScheme.light(
+                primary: Color(0xFF4F8EFF), // Vibrant blue
+                secondary: Color(0xFF7C4DFF), // Accent purple
+                background: Color(0xFFF3F7FB), // Soft blue background
+                surface: Color(0xFFEAF1FB), // Slightly deeper card background
+                onPrimary: Colors.white,
+                onSecondary: Colors.white,
+                onBackground: Color(0xFF222B45),
+                onSurface: Color(0xFF222B45),
+              ),
+              scaffoldBackgroundColor: Color(0xFFF3F7FB),
+              cardColor: Color(0xFFEAF1FB),
+              appBarTheme: AppBarTheme(
+                backgroundColor: Color(0xFFEAF1FB),
+                foregroundColor: Color(0xFF222B45),
+                elevation: 1,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+                ),
+              ),
+              floatingActionButtonTheme: FloatingActionButtonThemeData(
+                backgroundColor: Color(0xFF4F8EFF),
+                foregroundColor: Colors.white,
+              ),
+              elevatedButtonTheme: ElevatedButtonThemeData(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFF7C4DFF),
+                  foregroundColor: Colors.white,
+                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+              inputDecorationTheme: InputDecorationTheme(
+                filled: true,
+                fillColor: Color(0xFFF3F7FB),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Color(0xFF4F8EFF), width: 1.2),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Color(0xFF7C4DFF), width: 2),
+                ),
+              ),
+              chipTheme: ChipThemeData(
+                backgroundColor: Color(0xFF4F8EFF).withOpacity(0.08),
+                selectedColor: Color(0xFF7C4DFF).withOpacity(0.18),
+                labelStyle: TextStyle(color: Color(0xFF222B45)),
+                secondaryLabelStyle: TextStyle(color: Color(0xFF7C4DFF)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
             darkTheme: ThemeData.dark(useMaterial3: true),
             themeMode: themeProvider.themeMode,
             home: Consumer<AuthService>(
