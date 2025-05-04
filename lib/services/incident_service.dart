@@ -128,10 +128,28 @@ class IncidentService extends ChangeNotifier {
     try {
       String? userId;
       String? updatedBy;
+      String? email;
       if (context != null) {
         final authService = Provider.of<AuthService>(context, listen: false);
         userId = authService.currentUser?.id;
         updatedBy = authService.currentUser?.displayName ?? authService.currentUser?.email;
+        email = authService.currentUser?.email;
+        // Sync officer info to backend before updating status
+        if (userId != null && email != null) {
+          try {
+            await http.post(
+              Uri.parse('${ApiConfig.baseUrl}/users/sync'),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({
+                'firebaseId': userId,
+                'displayName': updatedBy,
+                'email': email,
+              }),
+            );
+          } catch (e) {
+            debugPrint('User sync failed: \\${e}');
+          }
+        }
       }
       final body = {
         'status': status.name,

@@ -190,30 +190,6 @@ class _IncidentDetailsState extends State<IncidentDetails> {
           _incident = updatedIncident;
           _isLoading = false;
         });
-
-        if (_incident.status != IncidentStatus.resolved) {
-          final shouldContinue = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Continue to iterate?'),
-              content: const Text('Would you like to keep monitoring this incident?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Stop'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Continue'),
-                ),
-              ],
-            ),
-          );
-
-          if (shouldContinue == true) {
-            _refreshTimer = Timer(const Duration(seconds: 30), _refreshIncident);
-          }
-        }
       }
     } catch (e) {
       if (mounted) {

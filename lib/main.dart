@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'services/auth_service.dart';
 import 'services/incident_service.dart';
 import 'services/theme_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/email_not_verified_screen.dart';
 import 'screens/officer_home_screen.dart';
+import 'screens/admin_manage_users_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -72,8 +75,19 @@ class MyApp extends StatelessWidget {
             themeMode: themeProvider.themeMode,
             home: Consumer<AuthService>(
               builder: (context, authService, _) {
+                final user = firebase_auth.FirebaseAuth.instance.currentUser;
                 if (authService.currentUser == null) {
                   return const LoginScreen();
+                }
+                // If user is signed in but email is not verified, show EmailNotVerifiedScreen
+                if (user != null && !user.emailVerified) {
+                  return EmailNotVerifiedScreen(
+                    email: user.email ?? '',
+                    password: '', // password can't be retrieved, but not needed for resend
+                  );
+                }
+                if (authService.currentUser!.role == 'admin') {
+                  return const AdminManageUsersScreen();
                 }
                 if (authService.currentUser!.role == 'officer') {
                   return const OfficerHomeScreen();

@@ -28,6 +28,9 @@ Thumbs.db
 android/local.properties
 android/app/google-services.json
 
+# iOS
+ios/Runner/GoogleService-Info.plist
+
 # Web
 web/firebase-messaging-sw.js
 
@@ -48,3 +51,4 @@ pubspec.lock
 # Test outputs
 test/*.mocks.dart
 lib/config/api_config.dart
+lib/config/api.dart

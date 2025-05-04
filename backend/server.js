@@ -255,6 +255,16 @@ app.get('/users/by-firebase-id/:firebaseId', async (req, res) => {
   }
 });
 
+// Get all users (for admin)
+app.get('/users', async (req, res) => {
+  try {
+    const users = await User.find();
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch users', details: err.message });
+  }
+});
+
 // Promote user to officer (admin/manual)
 app.patch('/users/:id/promote', async (req, res) => {
   try {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
+import 'email_not_verified_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -44,12 +45,25 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final errorMsg = e.toString();
+        // Always show the error as a SnackBar
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(errorMsg),
             backgroundColor: Colors.red,
           ),
         );
+        // If it's an unverified email, also navigate to the dedicated screen
+        if (errorMsg.toLowerCase().contains('email not verified')) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => EmailNotVerifiedScreen(
+                email: _emailController.text,
+                password: _passwordController.text,
+              ),
+            ),
+          );
+        }
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

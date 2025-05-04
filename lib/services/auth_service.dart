@@ -34,11 +34,13 @@ class AuthService extends ChangeNotifier {
 
   AppUser? get currentUser => _currentUser;
 
+  // Add this getter to expose FirebaseAuth instance
+  firebase_auth.FirebaseAuth get firebaseAuth => _auth;
+
   AuthService() {
     _auth.authStateChanges().listen((user) async {
       if (user != null) {
         _currentUser = await _fetchUserWithRole(user);
-        debugPrint('Fetched user: id=${_currentUser?.id}, email=${_currentUser?.email}, role=${_currentUser?.role}');
       } else {
         _currentUser = null;
         debugPrint('No user logged in');
@@ -54,6 +56,12 @@ class AuthService extends ChangeNotifier {
         password: password,
       );
       if (userCredential.user != null) {
+        // Check if email is verified
+        await userCredential.user!.reload();
+        final refreshedUser = _auth.currentUser;
+        if (refreshedUser != null && !refreshedUser.emailVerified) {
+          throw Exception('Email not verified. Please check your inbox.');
+        }
         await _syncUserWithBackend(userCredential.user!);
         _currentUser = await _fetchUserWithRole(userCredential.user!);
         notifyListeners();
@@ -71,6 +79,8 @@ class AuthService extends ChangeNotifier {
         password: password,
       );
       if (userCredential.user != null) {
+        // Send email verification
+        await userCredential.user!.sendEmailVerification();
         await _syncUserWithBackend(userCredential.user!);
         _currentUser = await _fetchUserWithRole(userCredential.user!);
         notifyListeners();
@@ -85,6 +95,22 @@ class AuthService extends ChangeNotifier {
     await _auth.signOut();
     _currentUser = null;
     notifyListeners();
+  }
+
+  Future<void> resendEmailVerification() async {
+    final user = _auth.currentUser;
+    if (user != null && !user.emailVerified) {
+      await user.sendEmailVerification();
+    }
+  }
+
+  // Add this method to reload the current user and notify listeners
+  Future<void> reloadCurrentUser() async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      await user.reload();
+      notifyListeners();
+    }
   }
 
   Future<void> _syncUserWithBackend(firebase_auth.User firebaseUser) async {

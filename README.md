@@ -98,6 +98,13 @@ Create a `launch.json` with the appropriate `--dart-define` arguments.
 
 ---
 
+## Local Configuration
+
+- Copy `lib/config/api_config.dart.example` to `lib/config/api_config.dart` and set your API base URL.
+- Copy `.env.example` to `.env` and set your backend secrets.
+
+---
+
 ## Usage
 - Start the backend server (`node backend/server.js`)
 - Run the Flutter app (`flutter run` or use VS Code launch config)

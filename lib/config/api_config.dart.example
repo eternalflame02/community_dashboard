@@ -1,0 +1,3 @@
+class ApiConfig {
+  static String get baseUrl => 'http://YOUR_LOCAL_IP:3000';
+}

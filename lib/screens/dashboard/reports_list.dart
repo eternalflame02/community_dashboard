@@ -36,6 +36,13 @@ class ReportsListState extends State<ReportsList> {
     });
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Always refresh the list when the page is shown
+    refresh();
+  }
+
   Future<void> _fetchMoreIncidents() async {
     setState(() => _isLoading = true);
     try {
@@ -95,23 +102,52 @@ class ReportsListState extends State<ReportsList> {
                         title: const Text('Completed Reports'),
                       );
                     },
-                    body: Column(
-                      children: _incidents
-                          .where((incident) => incident.status == IncidentStatus.resolved)
-                          .map((incident) => ListTile(
-                                title: Text(incident.title),
-                                subtitle: Text(incident.description),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => IncidentDetails(incident: incident),
+                    body: _incidents.where((incident) => incident.status == IncidentStatus.resolved).isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text('No completed reports.'),
+                          )
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              final isDesktop = defaultTargetPlatform == TargetPlatform.windows ||
+                                  defaultTargetPlatform == TargetPlatform.macOS ||
+                                  defaultTargetPlatform == TargetPlatform.linux;
+                              final crossAxisCount = isDesktop
+                                  ? (constraints.maxWidth ~/ 350).clamp(2, 5)
+                                  : 1;
+                              final completedIncidents = _incidents.where((incident) => incident.status == IncidentStatus.resolved).toList();
+                              return GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: crossAxisCount,
+                                  crossAxisSpacing: 16,
+                                  mainAxisSpacing: 16,
+                                  childAspectRatio: isDesktop ? 0.85 : 1.0,
+                                ),
+                                itemCount: completedIncidents.length,
+                                itemBuilder: (context, index) {
+                                  final incident = completedIncidents[index];
+                                  return AbsorbPointer(
+                                    absorbing: _isLoading,
+                                    child: _ReportTile(
+                                      incident: incident,
+                                      isOfficer: isOfficer,
+                                      onTap: () async {
+                                        await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => IncidentDetails(incident: incident),
+                                          ),
+                                        );
+                                      },
                                     ),
                                   );
                                 },
-                              ))
-                          .toList(),
-                    ),
+                              );
+                            },
+                          ),
                     isExpanded: _showCompleted,
                   ),
                 ],
