@@ -47,3 +47,4 @@ pubspec.lock
 
 # Test outputs
 test/*.mocks.dart
+lib/config/api_config.dart
