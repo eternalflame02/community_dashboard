@@ -38,8 +38,6 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
-      tls: true,
-      tlsAllowInvalidCertificates: false
     });
     console.log(`✅ MongoDB Atlas Connected: ${conn.connection.host}`);
 
@@ -118,10 +116,23 @@ const incidentSchema = new mongoose.Schema({
   reporterId: { type: String, required: true },
   images: [String],
   createdAt: { type: Date, default: Date.now },
-  resolvedAt: Date
+  resolvedAt: Date,
+  inProgressBy: { type: String }, // userId or name
+  inProgressAt: { type: Date },
+  resolvedBy: { type: String },
+  resolvedAt: { type: Date }
 }, { timestamps: true });
 
 const Incident = mongoose.model('Incident', incidentSchema);
+
+// User schema and model
+const userSchema = new mongoose.Schema({
+  firebaseId: { type: String, required: true, unique: true },
+  email: { type: String, required: true },
+  displayName: String,
+  role: { type: String, enum: ['user', 'officer'], default: 'user' },
+});
+const User = mongoose.model('User', userSchema);
 
 // Routes
 app.get('/health', (req, res) => {
@@ -144,6 +155,19 @@ app.get('/incidents', async (req, res) => {
   }
 });
 
+// Get a single incident by ID
+app.get('/incidents/:id', async (req, res) => {
+  try {
+    const incident = await Incident.findById(req.params.id);
+    if (!incident) {
+      return res.status(404).json({ error: 'Incident not found' });
+    }
+    res.json(incident);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch incident', details: err.message });
+  }
+});
+
 // Create new incident
 app.post('/incidents', async (req, res) => {
   try {
@@ -159,9 +183,19 @@ app.post('/incidents', async (req, res) => {
 // Update incident status
 app.patch('/incidents/:id', async (req, res) => {
   try {
+    const update = { $set: req.body };
+    // Track status changes
+    if (req.body.status === 'inProgress') {
+      update.$set.inProgressBy = req.body.userId || req.body.updatedBy || null;
+      update.$set.inProgressAt = new Date();
+    }
+    if (req.body.status === 'resolved') {
+      update.$set.resolvedBy = req.body.userId || req.body.updatedBy || null;
+      update.$set.resolvedAt = new Date();
+    }
     const incident = await Incident.findByIdAndUpdate(
       req.params.id,
-      { $set: req.body },
+      update,
       { new: true }
     );
     if (!incident) {
@@ -171,6 +205,78 @@ app.patch('/incidents/:id', async (req, res) => {
   } catch (err) {
     console.error('Error updating incident:', err);
     res.status(500).json({ error: 'Failed to update incident', details: err.message });
+  }
+});
+
+// Sync user from frontend (create if not exists, or update by email if needed)
+app.post('/users/sync', async (req, res) => {
+  try {
+    const { firebaseId, email, displayName } = req.body;
+    let user = await User.findOne({ firebaseId });
+    let finalDisplayName = displayName;
+    if (!finalDisplayName || finalDisplayName === 'null') {
+      if (email && typeof email === 'string' && email.includes('@')) {
+        finalDisplayName = email.split('@')[0];
+      } else {
+        finalDisplayName = 'user';
+      }
+    }
+    if (!user) {
+      // Check if a user with this email already exists (e.g., signed in with another provider)
+      user = await User.findOne({ email });
+      if (user) {
+        // Update the existing user's firebaseId and displayName if needed
+        user.firebaseId = firebaseId;
+        user.displayName = finalDisplayName;
+        await user.save();
+      } else {
+        // Create new user
+        user = new User({ firebaseId, email, displayName: finalDisplayName, role: 'user' });
+        await user.save();
+      }
+    } else if (user.displayName !== finalDisplayName) {
+      user.displayName = finalDisplayName;
+      await user.save();
+    }
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to sync user', details: err.message });
+  }
+});
+
+// Get user by firebaseId
+app.get('/users/by-firebase-id/:firebaseId', async (req, res) => {
+  try {
+    const user = await User.findOne({ firebaseId: req.params.firebaseId });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch user', details: err.message });
+  }
+});
+
+// Get all users (for admin)
+app.get('/users', async (req, res) => {
+  try {
+    const users = await User.find();
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch users', details: err.message });
+  }
+});
+
+// Promote user to officer (admin/manual)
+app.patch('/users/:id/promote', async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: { role: 'officer' } },
+      { new: true }
+    );
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to promote user', details: err.message });
   }
 });
 

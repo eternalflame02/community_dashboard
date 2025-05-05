@@ -10,6 +10,7 @@ import 'package:path/path.dart' as path;
 import '../../services/incident_service.dart';
 import '../../models/incident.dart';
 import '../../services/auth_service.dart';
+import '../../config/api.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -31,7 +32,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
   
   bool _isLoading = false;
   LatLng? _selectedLocation;
-  List<XFile> _selectedImages = [];
+  final List<XFile> _selectedImages = [];
   String _category = 'Other';
   IncidentPriority _priority = IncidentPriority.medium;
 
@@ -62,6 +63,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _addressController.dispose();
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -80,13 +82,13 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
         _selectedLocation = LatLng(position.latitude, position.longitude);
       });
 
-      if (_selectedLocation != null) {
+      if (mounted) {
         _mapController.move(_selectedLocation!, 15);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error getting location: $e')),
+          SnackBar(content: Text('Error getting location: $e'), backgroundColor: Colors.red, duration: Duration(seconds: 6)),
         );
       }
     }
@@ -103,7 +105,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking images: $e')),
+          SnackBar(content: Text('Error picking images: $e'), backgroundColor: Colors.red, duration: Duration(seconds: 6)),
         );
       }
     }
@@ -138,7 +140,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
     for (final image in _selectedImages) {
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://localhost:3000/upload'),
+        Uri.parse('${ApiConfig.baseUrl}/upload'),
       );
       
       final bytes = await image.readAsBytes();
@@ -163,6 +165,11 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
         }
       } catch (e) {
         debugPrint('Error uploading image: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error uploading image: $e'), backgroundColor: Colors.red, duration: Duration(seconds: 6)),
+          );
+        }
         rethrow;
       }
     }
@@ -172,7 +179,7 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
   Future<void> _submitReport() async {
     if (!_formKey.currentState!.validate() || _selectedLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all required fields')),
+        const SnackBar(content: Text('Please fill all required fields'), backgroundColor: Colors.red, duration: Duration(seconds: 5)),
       );
       return;
     }
@@ -180,7 +187,39 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
     setState(() => _isLoading = true);
 
     try {
-      debugPrint('Starting report submission...');
+      final authService = Provider.of<AuthService>(context, listen: false);
+      debugPrint('AuthService.currentUser: ${authService.currentUser}');
+      final userId = authService.currentUser?.id;
+      final displayName = authService.currentUser?.displayName;
+      final email = authService.currentUser?.email;
+
+      // Always sync user to backend before submitting incident
+      if (userId != null && email != null) {
+        try {
+          await http.post(
+            Uri.parse('${ApiConfig.baseUrl}/users/sync'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'firebaseId': userId,
+              'displayName': displayName,
+              'email': email,
+            }),
+          );
+        } catch (e) {
+          debugPrint('User sync failed: $e');
+        }
+      }
+
+      if (userId == null || userId.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('You must be logged in to submit a report.'), backgroundColor: Colors.red, duration: Duration(seconds: 5)),
+          );
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
+      debugPrint('Reporter ID used for incident: $userId');
       List<String> imageUrls = [];
       
       if (_selectedImages.isNotEmpty) {
@@ -210,20 +249,20 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
         category: _category,
         priority: _priority,
         status: IncidentStatus.open,
-        reporterId: Provider.of<AuthService>(context, listen: false).currentUser?.id ?? 'anonymous',
+        reporterId: userId,
         images: imageUrls,
         createdAt: DateTime.now(),
         resolvedAt: null,
       );
 
       debugPrint('Saving incident to MongoDB...');
-      final service = Provider.of<IncidentService>(context, listen: false);
-      await service.createIncident(incident);
+      await Provider.of<IncidentService>(context, listen: false)
+          .createIncident(incident, context: context);
       debugPrint('Incident saved successfully!');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Incident reported successfully')),
+          const SnackBar(content: Text('Incident reported successfully'), backgroundColor: Colors.green, duration: Duration(seconds: 4)),
         );
         Navigator.pop(context, true); // Pass `true` to indicate a new report was added
       }
@@ -407,15 +446,15 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
                                 child: FlutterMap(
                                   mapController: _mapController,
                                   options: MapOptions(
-                                    center: _selectedLocation ?? LatLng(0, 0),
-                                    zoom: 15,
+                                    initialCenter: _selectedLocation ?? LatLng(0, 0),
+                                    initialZoom: 15,
                                     onTap: (tapPosition, point) {
                                       setState(() {
                                         _selectedLocation = point;
                                       });
                                     },
                                   ),
-                                  nonRotatedChildren: [
+                                  children: [
                                     if (_selectedLocation != null)
                                       MarkerLayer(
                                         markers: [
@@ -431,12 +470,14 @@ class _ReportIncidentScreenState extends State<ReportIncidentScreen> {
                                           ),
                                         ],
                                       ),
-                                  ],
-                                  children: [
                                     TileLayer(
-                                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                      urlTemplate: Theme.of(context).brightness == Brightness.dark
+                                          ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+                                          : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                      subdomains: Theme.of(context).brightness == Brightness.dark ? ['a', 'b', 'c'] : [],
                                       userAgentPackageName: 'com.safety.community_dashboard',
                                       tileProvider: CancellableNetworkTileProvider(),
+                                      retinaMode: true,
                                     ),
                                   ],
                                 ),

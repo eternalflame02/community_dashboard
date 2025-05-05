@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'services/auth_service.dart';
 import 'services/incident_service.dart';
 import 'services/theme_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/email_not_verified_screen.dart';
+import 'screens/officer_home_screen.dart';
+import 'screens/admin_manage_users_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -69,39 +72,85 @@ class MyApp extends StatelessWidget {
             title: 'Community Dashboard',
             theme: ThemeData(
               useMaterial3: true,
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.blue,
-                primary: Colors.blue,
-                secondary: Colors.orange,
+              colorScheme: ColorScheme.light(
+                primary: Color(0xFF4F8EFF), // Vibrant blue
+                secondary: Color(0xFF7C4DFF), // Accent purple
+                background: Color(0xFFF3F7FB), // Soft blue background
+                surface: Color(0xFFEAF1FB), // Slightly deeper card background
+                onPrimary: Colors.white,
+                onSecondary: Colors.white,
+                onBackground: Color(0xFF222B45),
+                onSurface: Color(0xFF222B45),
               ),
-              cardTheme: CardTheme(
-                elevation: 2,
+              scaffoldBackgroundColor: Color(0xFFF3F7FB),
+              cardColor: Color(0xFFEAF1FB),
+              appBarTheme: AppBarTheme(
+                backgroundColor: Color(0xFFEAF1FB),
+                foregroundColor: Color(0xFF222B45),
+                elevation: 1,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+                ),
+              ),
+              floatingActionButtonTheme: FloatingActionButtonThemeData(
+                backgroundColor: Color(0xFF4F8EFF),
+                foregroundColor: Colors.white,
+              ),
+              elevatedButtonTheme: ElevatedButtonThemeData(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFF7C4DFF),
+                  foregroundColor: Colors.white,
+                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+              inputDecorationTheme: InputDecorationTheme(
+                filled: true,
+                fillColor: Color(0xFFF3F7FB),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Color(0xFF4F8EFF), width: 1.2),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Color(0xFF7C4DFF), width: 2),
+                ),
+              ),
+              chipTheme: ChipThemeData(
+                backgroundColor: Color(0xFF4F8EFF).withOpacity(0.08),
+                selectedColor: Color(0xFF7C4DFF).withOpacity(0.18),
+                labelStyle: TextStyle(color: Color(0xFF222B45)),
+                secondaryLabelStyle: TextStyle(color: Color(0xFF7C4DFF)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              elevatedButtonTheme: ElevatedButtonThemeData(
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
             ),
-            darkTheme: ThemeData.dark().copyWith(
-              useMaterial3: true,
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: Colors.blue,
-                brightness: Brightness.dark,
-              ),
-            ),
+            darkTheme: ThemeData.dark(useMaterial3: true),
             themeMode: themeProvider.themeMode,
             home: Consumer<AuthService>(
               builder: (context, authService, _) {
-                return authService.currentUser != null
-                    ? const HomeScreen()
-                    : const LoginScreen();
+                final user = firebase_auth.FirebaseAuth.instance.currentUser;
+                if (authService.currentUser == null) {
+                  return const LoginScreen();
+                }
+                // If user is signed in but email is not verified, show EmailNotVerifiedScreen
+                if (user != null && !user.emailVerified) {
+                  return EmailNotVerifiedScreen(
+                    email: user.email ?? '',
+                    password: '', // password can't be retrieved, but not needed for resend
+                  );
+                }
+                if (authService.currentUser!.role == 'admin') {
+                  return const AdminManageUsersScreen();
+                }
+                if (authService.currentUser!.role == 'officer') {
+                  return const OfficerHomeScreen();
+                }
+                return const HomeScreen();
               },
             ),
           );

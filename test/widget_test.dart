@@ -4,19 +4,24 @@
 // utility in the flutter_test package. For example, you can send tap and scroll
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
-
+import 'widget_test.mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:mockito/mockito.dart';
 import 'package:mockito/annotations.dart';
+// Remove the following line if widget_test.mocks.dart does not exist yet
+// import 'widget_test.mocks.dart';
+// If widget_test.mocks.dart is missing, run:
+// flutter pub run build_runner build
+// to generate the mocks file for mockito.
 import 'package:community_dashboard/main.dart';
 import 'package:community_dashboard/services/auth_service.dart';
 import 'package:firebase_core_platform_interface/firebase_core_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
+
 @GenerateMocks([AuthService])
-import 'widget_test.mocks.dart';
 
 class MockFirebaseAppPlatform extends FirebaseAppPlatform {
   MockFirebaseAppPlatform() : super(defaultFirebaseAppName, FirebaseOptions(
@@ -35,9 +40,7 @@ class MockFirebasePlatform extends FirebasePlatform with MockPlatformInterfaceMi
   
   @override
   FirebaseAppPlatform app([String name = defaultFirebaseAppName]) {
-    if (_app == null) {
-      _app = MockFirebaseAppPlatform();
-    }
+    _app ??= MockFirebaseAppPlatform();
     return _app!;
   }
 
@@ -52,7 +55,6 @@ class MockFirebasePlatform extends FirebasePlatform with MockPlatformInterfaceMi
   @override
   List<FirebaseAppPlatform> get apps => [app()];
 
-  @override
   Future<List<Map<String, dynamic>>> initializeCore() async {
     return [
       {
@@ -67,10 +69,8 @@ class MockFirebasePlatform extends FirebasePlatform with MockPlatformInterfaceMi
     ];
   }
 
-  @override
   bool get isIOS => false;
 
-  @override
   bool get isMacOS => false;
 }
 
@@ -167,7 +167,7 @@ void main() {
 
   testWidgets('Login screen handles successful login', (WidgetTester tester) async {
     when(mockAuth.currentUser).thenReturn(null);
-    when(mockAuth.signInWithEmail(any(that: isA<String>()), any(that: isA<String>())))
+    when(mockAuth.signInWithEmail(any, any))
         .thenAnswer((_) async {});
 
     await tester.pumpWidget(

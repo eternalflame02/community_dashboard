@@ -18,14 +18,22 @@ class IncidentsMap extends StatefulWidget {
 
 class _IncidentsMapState extends State<IncidentsMap> {
   final MapController _mapController = MapController();
+  bool _mapControllerDisposed = false;
   Position? _currentPosition;
-  double _currentZoom = 15.0;
+  final double _currentZoom = 15.0;
   Incident? _selectedIncident;
 
   @override
   void initState() {
     super.initState();
     _getCurrentLocation();
+  }
+
+  @override
+  void dispose() {
+    _mapControllerDisposed = true;
+    _mapController.dispose();
+    super.dispose();
   }
 
   Future<void> _getCurrentLocation() async {
@@ -70,13 +78,15 @@ class _IncidentsMapState extends State<IncidentsMap> {
         setState(() {
           _currentPosition = position;
         });
-        // Only move the map if the controller is attached and widget is mounted
+        // Only move the map if the controller is attached and widget is mounted and not disposed
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _mapController.move(
-              LatLng(position.latitude, position.longitude),
-              _currentZoom,
-            );
+          if (mounted && !_mapControllerDisposed) {
+            try {
+              _mapController.move(
+                LatLng(position.latitude, position.longitude),
+                _currentZoom,
+              );
+            } catch (_) {}
           }
         });
       }
@@ -135,22 +145,68 @@ class _IncidentsMapState extends State<IncidentsMap> {
                 Text('Failed to load incidents', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
                 Text('${snapshot.error}', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.red[400])),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  onPressed: () => setState(() {}),
+                ),
               ],
             ),
           );
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          // Improved empty state
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.map_outlined, size: 64, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text('No incidents found on the map', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600])),
-                const SizedBox(height: 8),
-                Text('Everything looks safe in your area!', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[500])),
-              ],
+          // Show the map even if there are no incidents
+          List<Marker> markers = [];
+          if (_currentPosition != null) {
+            markers.add(
+              Marker(
+                point: LatLng(
+                  _currentPosition!.latitude,
+                  _currentPosition!.longitude,
+                ),
+                width: 40,
+                height: 40,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withAlpha((0.7 * 255).round()),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                  child: const Tooltip(
+                    message: 'Your current location',
+                    child: Icon(
+                      Icons.my_location,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+          return FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _currentPosition != null
+                  ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+                  : const LatLng(0, 0),
+              initialZoom: _currentPosition != null ? _currentZoom : 2,
+              onTap: (_, __) => setState(() => _selectedIncident = null),
             ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                subdomains: [],
+                userAgentPackageName: 'com.safety.community_dashboard',
+                tileProvider: CancellableNetworkTileProvider(),
+                retinaMode: true,
+              ),
+              MarkerLayer(markers: markers),
+            ],
           );
         }
 
@@ -195,7 +251,7 @@ class _IncidentsMapState extends State<IncidentsMap> {
               height: 40,
               child: Container(
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+                  color: Theme.of(context).colorScheme.primary.withAlpha((0.7 * 255).round()),
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: Theme.of(context).colorScheme.primary,
@@ -218,13 +274,21 @@ class _IncidentsMapState extends State<IncidentsMap> {
         return FlutterMap(
           mapController: _mapController,
           options: MapOptions(
-            center: _currentPosition != null
+            initialCenter: _currentPosition != null
                 ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
                 : const LatLng(0, 0),
-            zoom: _currentPosition != null ? _currentZoom : 2,
+            initialZoom: _currentPosition != null ? _currentZoom : 2,
             onTap: (_, __) => setState(() => _selectedIncident = null),
           ),
-          nonRotatedChildren: [
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              subdomains: [],
+              userAgentPackageName: 'com.safety.community_dashboard',
+              tileProvider: CancellableNetworkTileProvider(),
+              retinaMode: true,
+            ),
+            MarkerLayer(markers: markers),
             if (_selectedIncident != null)
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 350),
@@ -243,14 +307,6 @@ class _IncidentsMapState extends State<IncidentsMap> {
                   incident: _selectedIncident!,
                 ),
               ),
-          ],
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.safety.community_dashboard',
-              tileProvider: CancellableNetworkTileProvider(),
-            ),
-            MarkerLayer(markers: markers),
           ],
         );
       },
